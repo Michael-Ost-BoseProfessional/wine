@@ -39,10 +39,6 @@
 
 WINE_DEFAULT_DEBUG_CHANNEL(jack);
 
-/* We store jack_client_t pointers as uint64_t handles for PE/Unix boundary */
-typedef uint64_t wine_jack_client_t;
-typedef uint64_t wine_jack_port_t;
-
 static jack_client_t *to_jack_client_t(wine_jack_client_t h)
 {
     return (jack_client_t *)(UINT_PTR)h;

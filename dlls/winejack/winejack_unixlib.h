@@ -21,8 +21,8 @@
 #ifndef __WINEJACK_UNIXLIB_H
 #define __WINEJACK_UNIXLIB_H
 
-#include <basetsd.h>
 #include <stddef.h>
+#include <stdint.h>
 
 /* Opaque handles for JACK objects (pointers stored as uint64_t) */
 typedef uint64_t wine_jack_client_t;
