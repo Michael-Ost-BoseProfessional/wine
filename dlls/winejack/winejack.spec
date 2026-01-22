@@ -1,0 +1,16 @@
+# Wine JACK driver exports
+
+@ stdcall jack_client_open(str long ptr)
+@ stdcall jack_client_close(int64)
+#@ stdcall wine_jack_activate(int64)
+#@ stdcall wine_jack_deactivate(int64)
+#@ stdcall wine_jack_Connect(int64 str str)
+#@ stdcall wine_jack_Disconnect(int64 str str)
+#@ stdcall wine_jack_PortRegister(int64 str str long long)
+#@ stdcall wine_jack_PortUnregister(int64 int64)
+#@ stdcall wine_jack_PortName(int64 ptr long)
+#@ stdcall wine_jack_GetPorts(int64 str str long ptr long)
+#@ stdcall wine_jack_PortByName(int64 str)
+#@ stdcall wine_jack_GetSampleRate(int64)
+#@ stdcall wine_jack_GetBufferSize(int64)
+#@ stdcall wine_jack_GetClientName(int64 ptr long)
