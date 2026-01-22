@@ -96,9 +96,9 @@ UINT64 WINAPI jack_client_open(const char *client_name, int options, int *status
 }
 
 /***********************************************************************
- *           wine_jack_client_close
+ *           jack_client_close
  */
-int WINAPI wine_jack_client_close(UINT64 client)
+int WINAPI jack_client_close(UINT64 client)
 {
     struct jack_client_close_params params = {
         .client = client,
