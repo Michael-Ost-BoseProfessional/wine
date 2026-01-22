@@ -44,6 +44,7 @@ AC_ARG_WITH(gstreamer, AS_HELP_STRING([--without-gstreamer],[do not use GStreame
 AC_ARG_WITH(hwloc,     AS_HELP_STRING([--without-hwloc],[do not use hwloc (CPU/cache topology detection on FreeBSD)]))
 AC_ARG_WITH(inotify,   AS_HELP_STRING([--without-inotify],[do not use inotify (filesystem change notifications)]))
 AC_ARG_WITH(krb5,      AS_HELP_STRING([--without-krb5],[do not use krb5 (Kerberos)]))
+AC_ARG_WITH(jack,      AS_HELP_STRING([--without-jack],[do not use JACK sound support]))
 AC_ARG_WITH(mingw,     AS_HELP_STRING([--without-mingw],[do not use the MinGW cross-compiler]))
 AC_ARG_WITH(netapi,    AS_HELP_STRING([--without-netapi],[do not use the Samba NetAPI library]))
 AC_ARG_WITH(opencl,    AS_HELP_STRING([--without-opencl],[do not use OpenCL]),
@@ -1736,6 +1737,18 @@ WINE_NOTICE_WITH(alsa,[test -z "$ALSA_LIBS"],
                  [libasound ${notice_platform}development files not found, Alsa won't be supported.],
                  [enable_winealsa_drv])
 
+dnl **** Check for JACK ****
+AC_SUBST(JACK_LIBS,"")
+if test "x$with_jack" != xno
+then
+    WINE_PACKAGE_FLAGS(JACK,[jack],[],,,
+        [AC_CHECK_HEADER(jack/jack.h,
+            [WINE_CHECK_SONAME(jack,jack_client_open,,,[$JACK_LIBS])])])
+fi
+WINE_NOTICE_WITH(jack,[test -z "$JACK_LIBS"],
+                 [libjack ${notice_platform}development files not found, JACK won't be supported.],
+                 [enable_winejack])
+
 dnl **** Check for OSSv4 ****
 if test "x$with_oss" != xno
 then
@@ -3360,6 +3373,7 @@ WINE_CONFIG_MAKEFILE(dlls/wined3d)
 WINE_CONFIG_MAKEFILE(dlls/winedmo)
 WINE_CONFIG_MAKEFILE(dlls/winegstreamer)
 WINE_CONFIG_MAKEFILE(dlls/winehid.sys)
+WINE_CONFIG_MAKEFILE(dlls/winejack)
 WINE_CONFIG_MAKEFILE(dlls/winemac.drv)
 WINE_CONFIG_MAKEFILE(dlls/winemapi)
 WINE_CONFIG_MAKEFILE(dlls/wineoss.drv)
