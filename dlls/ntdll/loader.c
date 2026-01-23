@@ -3331,13 +3331,16 @@ static NTSTATUS load_dll( const WCHAR *load_path, const WCHAR *libname, DWORD fl
 
     TRACE( "looking for %s in %s\n", debugstr_w(libname), debugstr_w(load_path) );
 
-    if (system && system_dll_path.Buffer)
+    if (system && system_dll_path.Buffer) {
         nts = search_dll_file( system_dll_path.Buffer, libname, &nt_name, pwm, &mapping, &image_info, &id );
+        TRACE("[MO] line=%d nts=%lx\n", __LINE__, nts);
+    }
 
     if (nts)
     {
         nts = find_dll_file( load_path, libname, &nt_name, pwm, &mapping, &image_info, &id,
                              &redirected, FALSE );
+        TRACE("[MO] line=%d nts=%lx\n", __LINE__, nts);
         system = FALSE;
     }
 
@@ -3361,11 +3364,13 @@ static NTSTATUS load_dll( const WCHAR *load_path, const WCHAR *libname, DWORD fl
     {
     case STATUS_INVALID_IMAGE_NOT_MZ:  /* not in PE format, maybe it's a .so file */
         if (__wine_unixlib_handle) nts = load_so_dll( load_path, &nt_name, flags, pwm );
+        TRACE("[MO] line=%d nts=%lx\n", __LINE__, nts);
         break;
 
     case STATUS_SUCCESS:  /* valid PE file */
         nts = load_native_dll( load_path, &nt_name, mapping, &image_info, &id, flags, system,
                                redirected, pwm );
+        TRACE("[MO] line=%d nts=%lx\n", __LINE__, nts);
         break;
     }
 
