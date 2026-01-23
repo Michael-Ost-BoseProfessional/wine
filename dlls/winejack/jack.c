@@ -37,6 +37,11 @@
 
 #include <jack/jack.h>
 
+// verify the size of same-named winejack types
+C_ASSERT(sizeof(jack_client_t*) == sizeof(uint64_t));
+C_ASSERT(sizeof(jack_options_t) == sizeof(uint32_t));
+C_ASSERT(sizeof(jack_status_t) == sizeof(uint32_t));
+
 WINE_DEFAULT_DEBUG_CHANNEL(jack);
 
 static jack_client_t *to_jack_client_t(wine_jack_client_t h)
