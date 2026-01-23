@@ -1,4 +1,5 @@
 MODULE    = winejack
+IMPORTLIB = winejack
 UNIXLIB   = winejack.so
 UNIX_CFLAGS  = $(JACK_CFLAGS)
 UNIX_LIBS    = $(JACK_LIBS) $(PTHREAD_LIBS)
