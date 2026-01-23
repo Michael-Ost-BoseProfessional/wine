@@ -30,6 +30,39 @@ extern "C" {
 
 /* Opaque handles */
 typedef uint64_t jack_client_t;
+
+/* JACK options from jack/types.h */
+enum JackOptions {
+    JackNullOption      = 0x00,
+    JackNoStartServer   = 0x01,
+    JackUseExactName    = 0x02
+#if LATER
+#define JackOptions_JackServerName      0x04
+#define JackOptions_JackLoadName        0x08
+#define JackOptions_JackLoadInit        0x10
+#define JackOptions_JackSessionID       0x20
+#endif
+};
+typedef enum JackOptions jack_options_t;
+
+/* JACK status bits from jack/types.h */
+enum JackStatus {
+    JackFailure         = 0x01,
+    JackInvalidOption   = 0x02,
+    JackNameNotUnique   = 0x04,
+    JackServerStarted   = 0x08,
+    JackServerFailed    = 0x10,
+    JackServerError     = 0x20,
+    JackNoSuchClient    = 0x40,
+    JackLoadFailure     = 0x80,
+    JackInitFailure     = 0x100,
+    JackShmFailure      = 0x200,
+    JackVersionError    = 0x400,
+    JackBackendError    = 0x800,
+    JackClientZombie    = 0x1000
+};
+typedef enum JackStatus jack_status_t;
+
 #if LATER
 typedef uint64_t jack_port_t;
 
@@ -40,26 +73,6 @@ typedef uint64_t jack_port_t;
 #define JackPortCanMonitor 0x8
 #define JackPortIsTerminal 0x10
 
-/* JACK options */
-#define JackNullOption      0x00
-#define JackNoStartServer  0x01
-#define JackUseExactName   0x02
-#define JackServerName      0x04
-#define JackSessionID       0x20
-
-/* JACK status flags */
-#define JackFailure         0x01
-#define JackInvalidOption   0x02
-#define JackNameNotUnique 0x04
-#define JackServerStarted 0x08
-#define JackServerFailed  0x10
-#define JackServerError   0x20
-#define JackNoSuchClient 0x40
-#define JackLoadFailure   0x80
-#define JackInitFailure   0x100
-#define JackShmFailure    0x200
-#define JackVersionError  0x400
-
 /* Default audio port type */
 #define JACK_DEFAULT_AUDIO_TYPE "32 bit float mono audio"
 #endif
@@ -67,7 +80,7 @@ typedef uint64_t jack_port_t;
 /*
  * Client lifecycle
  */
-jack_client_t jack_client_open(const char *client_name, int options, int *status);
+jack_client_t jack_client_open(const char *client_name, jack_options_t options, jack_status_t *status);
 int jack_client_close(jack_client_t client);
 #if LATER
 int wine_jack_activate(wine_jack_client_t client);
