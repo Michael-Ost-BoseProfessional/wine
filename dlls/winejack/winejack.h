@@ -29,19 +29,19 @@ extern "C" {
 #endif
 
 /* Opaque handles */
-typedef uint64_t jack_client_t;
+typedef void jack_client_t;
+typedef void jack_port_t;
 
 /* JACK options from jack/types.h */
 enum JackOptions {
     JackNullOption      = 0x00,
     JackNoStartServer   = 0x01,
-    JackUseExactName    = 0x02
-#if LATER
-#define JackOptions_JackServerName      0x04
-#define JackOptions_JackLoadName        0x08
-#define JackOptions_JackLoadInit        0x10
-#define JackOptions_JackSessionID       0x20
-#endif
+    JackUseExactName    = 0x02,
+    // TODO: optional jack_client_open args are NYI
+    JackServerName      = 0x04,
+    JackLoadName        = 0x08,
+    JackLoadInit        = 0x10,
+    JackSessionID       = 0x20
 };
 typedef enum JackOptions jack_options_t;
 
@@ -63,62 +63,44 @@ enum JackStatus {
 };
 typedef enum JackStatus jack_status_t;
 
-#if LATER
-typedef uint64_t jack_port_t;
-
 /* JACK port flags from jack/types.h */
-#define JackPortIsInput    0x1
-#define JackPortIsOutput   0x2
-#define JackPortIsPhysical 0x4
-#define JackPortCanMonitor 0x8
-#define JackPortIsTerminal 0x10
+enum JackPortFlags {
+    JackPortIsInput = 0x1,
+    JackPortIsOutput = 0x2,
+    JackPortIsPhysical = 0x4,
+    JackPortCanMonitor = 0x8,
+    JackPortIsTerminal = 0x10,
+};
 
-/* Default audio port type */
+typedef uint32_t        jack_nframes_t;
+typedef int (*JackProcessCallback)(jack_nframes_t nframes, void *arg);
+typedef void (*JackShutdownCallback)(void *arg);
+
 #define JACK_DEFAULT_AUDIO_TYPE "32 bit float mono audio"
-#endif
 
 /*
- * Client lifecycle
+ * JACK client interface - see jack.h
  */
-jack_client_t jack_client_open(const char *client_name, jack_options_t options, jack_status_t *status);
-int jack_client_close(jack_client_t client);
-#if LATER
-int wine_jack_activate(wine_jack_client_t client);
-int wine_jack_deactivate(wine_jack_client_t client);
+int             jack_activate (jack_client_t* client);
+int             jack_client_close(jack_client_t* client);
+jack_client_t*  jack_client_open(const char* client_name, jack_options_t options, jack_status_t* status);
+const char**    jack_get_ports(jack_client_t* client, const char *port_name_pattern,
+                            const char *type_name_pattern, unsigned long flags);
+jack_nframes_t  jack_get_sample_rate (jack_client_t* client);
+int             jack_set_process_callback(jack_client_t* client, JackProcessCallback process_callback, void* arg);
+void            jack_on_shutdown(jack_client_t* client, JackShutdownCallback shutdown_callback, void* arg);
 
 /*
- * Port connections
+ * JACK port interface - see jack.h
  */
-int wine_jack_Connect(wine_jack_client_t client, const char *source_port, const char *destination_port);
-int wine_jack_Disconnect(wine_jack_client_t client, const char *source_port, const char *destination_port);
+int             jack_connect(jack_client_t* client, const char *source_port, const char *destination_port);
+int             jack_disconnect(jack_client_t* client, const char *source_port, const char *destination_port);
+void*           jack_port_get_buffer (jack_port_t *port, jack_nframes_t);
+const char*     jack_port_name(const jack_port_t* port);
+jack_port_t*    jack_port_register(jack_client_t* client, const char* port_name, const char* port_type,
+                                   unsigned long flags, unsigned long buffer_size);
 
-/*
- * Port management
- */
-wine_jack_port_t wine_jack_PortRegister(wine_jack_client_t client, const char *port_name,
-                                    const char *port_type, unsigned long flags,
-                                    unsigned long buffer_size);
-int wine_jack_PortUnregister(wine_jack_client_t client, wine_jack_port_t port);
-int wine_jack_PortName(wine_jack_port_t port, char *buffer, size_t buffer_size);
-wine_jack_port_t wine_jack_PortByName(wine_jack_client_t client, const char *port_name);
-
-/*
- * Port enumeration
- * Returns count of ports found. Port names are written to ports_buffer as
- * null-terminated strings: "name1\0name2\0name3\0\0"
- */
-unsigned int wine_jack_GetPorts(wine_jack_client_t client, const char *port_name_pattern,
-                                const char *type_name_pattern, unsigned long flags,
-                                char *ports_buffer, size_t buffer_size);
-
-/*
- * Server info
- */
-uint32_t wine_jack_GetSampleRate(wine_jack_client_t client);
-uint32_t wine_jack_GetBufferSize(wine_jack_client_t client);
-int wine_jack_GetClientName(wine_jack_client_t client, char *buffer, size_t buffer_size);
-
-#endif // LATER
+void            jack_free(void* ptr);
 
 #ifdef __cplusplus
 }

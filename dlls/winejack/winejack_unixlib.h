@@ -27,28 +27,12 @@
 /* Opaque handles for JACK objects (pointers stored as uint64_t) */
 typedef uint64_t wine_jack_client_t;
 typedef uint64_t wine_jack_port_t;
+typedef uint32_t wine_jack_options_t;
+typedef uint32_t wine_jack_status_t;
+typedef uint32_t wine_jack_nframes_t;
 
 /* Parameter structures for each function */
 
-struct jack_client_open_params
-{
-    const char *client_name;
-    int options;
-
-    /* outputs */
-    int status; /* jack_status_t */
-    wine_jack_client_t client;
-};
-
-struct jack_client_close_params
-{
-    wine_jack_client_t client;
-
-    /* outputs */
-    int result;
-};
-
-#if LATER
 struct jack_activate_params
 {
     wine_jack_client_t client;
@@ -57,19 +41,67 @@ struct jack_activate_params
     int result;
 };
 
-struct jack_deactivate_params
+struct jack_client_close_params
 {
     wine_jack_client_t client;
 
     /* outputs */
     int result;
+};    
+
+struct jack_client_open_params
+{
+    const char* client_name;
+    wine_jack_options_t options;
+
+    /* outputs */
+    wine_jack_status_t status;
+    wine_jack_client_t client;
+};        
+
+struct jack_get_ports_params
+{
+    wine_jack_client_t client;
+    const char* port_name_pattern;
+    const char* type_name_pattern;
+    unsigned long flags;
+    
+    /* outputs */
+    const char** ports_buffer;
+};
+
+struct jack_get_sample_rate_params
+{
+    wine_jack_client_t client;
+
+    /* outputs */
+    wine_jack_nframes_t sample_rate;
+};
+
+struct jack_set_process_callback_params
+{
+    wine_jack_client_t client;
+    void* process_callback;
+    void* arg;
+
+    /* outputs */
+    int result;
+};
+
+struct jack_on_shutdown_params
+{
+    wine_jack_client_t client;
+    void* shutdown_callback;
+    void* arg;
+
+    /* outputs */
 };
 
 struct jack_connect_params
 {
     wine_jack_client_t client;
-    const char *source_port;
-    const char *destination_port;
+    const char* source_port;
+    const char* destination_port;
 
     /* outputs */
     int result;
@@ -78,18 +110,35 @@ struct jack_connect_params
 struct jack_disconnect_params
 {
     wine_jack_client_t client;
-    const char *source_port;
-    const char *destination_port;
+    const char* source_port;
+    const char* destination_port;
 
     /* outputs */
     int result;
 };
 
+struct jack_port_get_buffer_params
+{
+    wine_jack_port_t port;
+    wine_jack_nframes_t nframes;
+
+    /* outputs */
+    void* buffer;
+};
+
+struct jack_port_name_params
+{
+    wine_jack_port_t port;
+ 
+    /* outputs */
+    const char* name;
+};
+
 struct jack_port_register_params
 {
     wine_jack_client_t client;
-    const char *port_name;
-    const char *port_type;
+    const char* port_name;
+    const char* port_type;
     unsigned long flags;
     unsigned long buffer_size;
 
@@ -97,92 +146,31 @@ struct jack_port_register_params
     wine_jack_port_t port;
 };
 
-struct jack_port_unregister_params
+struct jack_free_params
 {
-    wine_jack_client_t client;
-    wine_jack_port_t port;
-
-    /* outputs */
-    int result;
+    void* ptr;
 };
-
-struct jack_port_name_params
-{
-    wine_jack_port_t port;
-    size_t buffer_size;
-
-    /* outputs */
-    char *buffer;
-};
-
-struct jack_get_ports_params
-{
-    wine_jack_client_t client;
-    const char *port_name_pattern;
-    const char *type_name_pattern;
-    unsigned long flags;
-    size_t buffer_size;
-    
-    /* outputs */
-    char *ports_buffer; /* e.g. name1\0name2\0name3\0 */
-    unsigned int count;
-};
-
-struct jack_port_by_name_params
-{
-    wine_jack_client_t client;
-    const char *port_name;
-
-    /* outputs */
-    wine_jack_port_t port;
-};
-
-struct jack_get_sample_rate_params
-{
-    wine_jack_client_t client;
-
-    /* outputs */
-    UINT32 sample_rate;
-};
-
-struct jack_get_buffer_size_params
-{
-    wine_jack_client_t client;
-
-    /* outputs */
-    UINT32 buffer_size;
-};
-
-struct jack_get_client_name_params
-{
-    wine_jack_client_t client;
-    size_t buffer_size;
-    
-    /* outputs */
-    char *buffer;
-};
-#endif
 
 /* Function enumeration - must match __wine_unix_call_funcs order */
 enum wine_jack_func_ids
 {
-    jack_client_open_id,
+    jack_activate_id,
     jack_client_close_id,
-#if LATER
-    unix_jack_activate,
-    unix_jack_deactivate,
-    unix_jack_connect,
-    unix_jack_disconnect,
-    unix_jack_port_register,
-    unix_jack_port_unregister,
-    unix_jack_port_name,
-    unix_jack_get_ports,
-    unix_jack_port_by_name,
-    unix_jack_get_sample_rate,
-    unix_jack_get_buffer_size,
-    unix_jack_get_client_name,
-#endif
-    unix_jack_funcs_count
+    jack_client_open_id,
+    jack_get_ports_id,
+    jack_get_sample_rate_id,
+    jack_set_process_callback_id,
+    jack_on_shutdown_id,
+
+    jack_connect_id,
+    jack_disconnect_id,
+    jack_port_get_buffer_id,
+    jack_port_name_id,
+    jack_port_register_id,
+
+    jack_free_id,
+
+    wine_jack_funcs_count
 };
 
 #endif /* __WINEJACK_UNIXLIB_H */
