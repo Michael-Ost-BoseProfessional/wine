@@ -1,5 +1,5 @@
 /*
- * Wine JACK unixlib - Header for PE/Unix interface
+ * Wine JACK unixlib - Define unixlib thunking for both PE- and Linux-side implementations 
  *
  * Copyright 2026 Michael Ost / Bose Professional
  *

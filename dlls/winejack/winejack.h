@@ -72,7 +72,7 @@ enum JackPortFlags {
     JackPortIsTerminal = 0x10,
 };
 
-typedef uint32_t        jack_nframes_t;
+typedef uint32_t jack_nframes_t;
 typedef int (*JackProcessCallback)(jack_nframes_t nframes, void *arg);
 typedef void (*JackShutdownCallback)(void *arg);
 

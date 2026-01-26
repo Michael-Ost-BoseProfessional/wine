@@ -5,5 +5,5 @@ UNIX_CFLAGS  = $(JACK_CFLAGS)
 UNIX_LIBS    = $(JACK_LIBS) $(PTHREAD_LIBS)
 
 SOURCES = \
-	jack.c \
-	winejack.c
+	winejack_linux.c \
+	winejack_pe.c

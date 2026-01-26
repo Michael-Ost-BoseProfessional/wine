@@ -1,5 +1,5 @@
 /*
- * Wine JACK unixlib - Exposes JACK API to Windows/PE side
+ * Wine JACK unixlib - Linux-side calls to JACK from thunked Windows/PE calls
  *
  * Copyright 2026 - Michael Ost / Bose Professional
  *
