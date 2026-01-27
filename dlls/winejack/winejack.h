@@ -85,7 +85,7 @@ int             jack_activate (jack_client_t* client);
 int             jack_client_close(jack_client_t* client);
 jack_client_t*  jack_client_open(const char* client_name, jack_options_t options, jack_status_t* status);
 const char**    jack_get_ports(jack_client_t* client, const char *port_name_pattern,
-                            const char *type_name_pattern, unsigned long flags);
+                            const char *type_name_pattern, uint64_t flags);
 jack_nframes_t  jack_get_sample_rate (jack_client_t* client);
 int             jack_set_process_callback(jack_client_t* client, JackProcessCallback process_callback, void* arg);
 void            jack_on_shutdown(jack_client_t* client, JackShutdownCallback shutdown_callback, void* arg);
@@ -98,7 +98,7 @@ int             jack_disconnect(jack_client_t* client, const char *source_port, 
 void*           jack_port_get_buffer (jack_port_t *port, jack_nframes_t);
 const char*     jack_port_name(const jack_port_t* port);
 jack_port_t*    jack_port_register(jack_client_t* client, const char* port_name, const char* port_type,
-                                   unsigned long flags, unsigned long buffer_size);
+                                   uint64_t flags, uint64_t buffer_size);
 
 void            jack_free(void* ptr);
 
