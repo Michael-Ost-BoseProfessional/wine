@@ -38,7 +38,7 @@ struct jack_activate_params
     wine_jack_client_t client;
 
     /* outputs */
-    int result;
+    int32_t result;
 };
 
 struct jack_client_close_params
@@ -46,7 +46,7 @@ struct jack_client_close_params
     wine_jack_client_t client;
 
     /* outputs */
-    int result;
+    int32_t result;
 };    
 
 struct jack_client_open_params
@@ -64,7 +64,7 @@ struct jack_get_ports_params
     wine_jack_client_t client;
     const char* port_name_pattern;
     const char* type_name_pattern;
-    unsigned long flags;
+    uint64_t flags;
     
     /* outputs */
     const char** ports_buffer;
@@ -104,7 +104,7 @@ struct jack_connect_params
     const char* destination_port;
 
     /* outputs */
-    int result;
+    int32_t result;
 };
 
 struct jack_disconnect_params
@@ -114,7 +114,7 @@ struct jack_disconnect_params
     const char* destination_port;
 
     /* outputs */
-    int result;
+    int32_t result;
 };
 
 struct jack_port_get_buffer_params
@@ -139,8 +139,8 @@ struct jack_port_register_params
     wine_jack_client_t client;
     const char* port_name;
     const char* port_type;
-    unsigned long flags;
-    unsigned long buffer_size;
+    uint64_t flags;
+    uint64_t buffer_size;
 
     /* outputs */
     wine_jack_port_t port;
