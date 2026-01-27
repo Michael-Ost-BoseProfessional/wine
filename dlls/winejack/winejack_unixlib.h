@@ -24,9 +24,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* Opaque handles for JACK objects (pointers stored as uint64_t) */
-typedef uint64_t wine_jack_client_t;
-typedef uint64_t wine_jack_port_t;
+/* Opaque handles for JACK objects */
+typedef void wine_jack_client_t;
+typedef void wine_jack_port_t;
+/* Int types */
 typedef uint32_t wine_jack_options_t;
 typedef uint32_t wine_jack_status_t;
 typedef uint32_t wine_jack_nframes_t;
@@ -35,7 +36,7 @@ typedef uint32_t wine_jack_nframes_t;
 
 struct jack_activate_params
 {
-    wine_jack_client_t client;
+    wine_jack_client_t* client;
 
     /* outputs */
     int32_t result;
@@ -43,7 +44,7 @@ struct jack_activate_params
 
 struct jack_client_close_params
 {
-    wine_jack_client_t client;
+    wine_jack_client_t* client;
 
     /* outputs */
     int32_t result;
@@ -56,12 +57,12 @@ struct jack_client_open_params
 
     /* outputs */
     wine_jack_status_t status;
-    wine_jack_client_t client;
+    wine_jack_client_t* client;
 };        
 
 struct jack_get_ports_params
 {
-    wine_jack_client_t client;
+    wine_jack_client_t* client;
     const char* port_name_pattern;
     const char* type_name_pattern;
     uint64_t flags;
@@ -72,7 +73,7 @@ struct jack_get_ports_params
 
 struct jack_get_sample_rate_params
 {
-    wine_jack_client_t client;
+    wine_jack_client_t* client;
 
     /* outputs */
     wine_jack_nframes_t sample_rate;
@@ -80,7 +81,7 @@ struct jack_get_sample_rate_params
 
 struct jack_set_process_callback_params
 {
-    wine_jack_client_t client;
+    wine_jack_client_t* client;
     void* process_callback;
     void* arg;
 
@@ -90,7 +91,7 @@ struct jack_set_process_callback_params
 
 struct jack_on_shutdown_params
 {
-    wine_jack_client_t client;
+    wine_jack_client_t* client;
     void* shutdown_callback;
     void* arg;
 
@@ -99,7 +100,7 @@ struct jack_on_shutdown_params
 
 struct jack_connect_params
 {
-    wine_jack_client_t client;
+    wine_jack_client_t* client;
     const char* source_port;
     const char* destination_port;
 
@@ -109,7 +110,7 @@ struct jack_connect_params
 
 struct jack_disconnect_params
 {
-    wine_jack_client_t client;
+    wine_jack_client_t* client;
     const char* source_port;
     const char* destination_port;
 
@@ -119,7 +120,7 @@ struct jack_disconnect_params
 
 struct jack_port_get_buffer_params
 {
-    wine_jack_port_t port;
+    wine_jack_port_t* port;
     wine_jack_nframes_t nframes;
 
     /* outputs */
@@ -128,7 +129,7 @@ struct jack_port_get_buffer_params
 
 struct jack_port_name_params
 {
-    wine_jack_port_t port;
+    wine_jack_port_t* port;
  
     /* outputs */
     const char* name;
@@ -136,14 +137,14 @@ struct jack_port_name_params
 
 struct jack_port_register_params
 {
-    wine_jack_client_t client;
+    wine_jack_client_t* client;
     const char* port_name;
     const char* port_type;
     uint64_t flags;
     uint64_t buffer_size;
 
     /* outputs */
-    wine_jack_port_t port;
+    wine_jack_port_t* port;
 };
 
 struct jack_free_params

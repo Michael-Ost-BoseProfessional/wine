@@ -51,33 +51,13 @@ C_ASSERT(sizeof(char*) == sizeof(uint64_t));
 
 WINE_DEFAULT_DEBUG_CHANNEL(jack);
 
-static jack_client_t *to_jack_client_t(wine_jack_client_t h)
-{
-    return (jack_client_t *)(UINT_PTR)h;
-}
-
-static wine_jack_client_t to_wine_jack_client_t(jack_client_t *client)
-{
-    return (wine_jack_client_t)(UINT_PTR)client;
-}
-
-static jack_port_t *to_jack_port_t(wine_jack_port_t h)
-{
-    return (jack_port_t *)(UINT_PTR)h;
-}
-
-static wine_jack_port_t to_wine_jack_port_t(jack_port_t *port)
-{
-    return (wine_jack_port_t)(UINT_PTR)port;
-}
-
 /*
  * linux_jack_activate
  */
 static NTSTATUS linux_jack_activate(void* args)
 {
     struct jack_activate_params* params = args;
-    jack_client_t* client = to_jack_client_t(params->client);
+    jack_client_t* client = (jack_client_t*)params->client;
 
     TRACE("client=%p\n", client);
 
@@ -92,7 +72,7 @@ static NTSTATUS linux_jack_activate(void* args)
 static NTSTATUS linux_jack_client_close(void* args)
 {
     struct jack_client_close_params* params = args;
-    jack_client_t* client = to_jack_client_t(params->client);
+    jack_client_t* client = (jack_client_t*)params->client;
 
     TRACE("client=%p\n", client);
 
@@ -115,7 +95,7 @@ static NTSTATUS linux_jack_client_open(void* args)
     client = jack_client_open(params->client_name, params->options, &status);
 
     params->status = status;
-    params->client = to_wine_jack_client_t(client);
+    params->client = (jack_client_t*)client;
 
     return params->client? _STATUS_SUCCESS : _STATUS_INVALID_PARAMETER;
 }        
@@ -126,7 +106,7 @@ static NTSTATUS linux_jack_client_open(void* args)
 static NTSTATUS linux_jack_get_ports(void *args)
 {
     struct jack_get_ports_params *params = args;
-    jack_client_t *client = to_jack_client_t(params->client);
+    jack_client_t *client = (jack_client_t*)params->client;
 
     TRACE("client=%p, name_pattern=%s, type_pattern=%s, flags=0x%lx\n",
           client, params->port_name_pattern, params->type_name_pattern,
@@ -144,7 +124,7 @@ static NTSTATUS linux_jack_get_ports(void *args)
 static NTSTATUS linux_jack_get_sample_rate(void *args)
 {
     struct jack_get_sample_rate_params *params = args;
-    jack_client_t *client = to_jack_client_t(params->client);
+    jack_client_t *client = (jack_client_t*)params->client;
 
     params->sample_rate = jack_get_sample_rate(client);
 
@@ -157,7 +137,7 @@ static NTSTATUS linux_jack_get_sample_rate(void *args)
 static NTSTATUS linux_jack_set_process_callback(void *args)
 {
     struct jack_set_process_callback_params *params = args;
-    jack_client_t *client = to_jack_client_t(params->client);
+    jack_client_t *client = (jack_client_t*)params->client;
 
     params->result = jack_set_process_callback(client, params->process_callback, params->arg);
 
@@ -170,7 +150,7 @@ static NTSTATUS linux_jack_set_process_callback(void *args)
 static NTSTATUS linux_jack_on_shutdown(void *args)
 {
     struct jack_on_shutdown_params* params = args;
-    jack_client_t *client = to_jack_client_t(params->client);
+    jack_client_t *client = (jack_client_t*)params->client;
 
     jack_on_shutdown(client, params->shutdown_callback, params->arg);
 
@@ -183,7 +163,7 @@ static NTSTATUS linux_jack_on_shutdown(void *args)
 static NTSTATUS linux_jack_connect(void *args)
 {
     struct jack_connect_params *params = args;
-    jack_client_t *client = to_jack_client_t(params->client);
+    jack_client_t *client = (jack_client_t*)params->client;
 
     TRACE("client=%p, src=%s, dst=%s\n", client,
           params->source_port, params->destination_port);
@@ -202,7 +182,7 @@ static NTSTATUS linux_jack_connect(void *args)
 static NTSTATUS linux_jack_disconnect(void *args)
 {
     struct jack_disconnect_params *params = args;
-    jack_client_t *client = to_jack_client_t(params->client);
+    jack_client_t *client = (jack_client_t*)params->client;
 
     TRACE("client=%p, src=%s, dst=%s\n", client,
           params->source_port, params->destination_port);
@@ -219,7 +199,7 @@ static NTSTATUS linux_jack_disconnect(void *args)
 static NTSTATUS linux_jack_port_get_buffer(void *args)
 {
     struct jack_port_get_buffer_params* params = args;
-    jack_port_t *port = to_jack_port_t(params->port);
+    jack_port_t *port = (jack_port_t*)params->port;
 
     params->buffer = jack_port_get_buffer(port, params->nframes);
 
@@ -232,7 +212,7 @@ static NTSTATUS linux_jack_port_get_buffer(void *args)
 static NTSTATUS linux_jack_port_name(void *args)
 {
     struct jack_port_name_params *params = args;
-    jack_port_t *port = to_jack_port_t(params->port);
+    jack_port_t *port = (jack_port_t*)params->port;
 
     params->name = jack_port_name(port);
 
@@ -245,7 +225,7 @@ static NTSTATUS linux_jack_port_name(void *args)
 static NTSTATUS linux_jack_port_register(void *args)
 {
    struct jack_port_register_params *params = args;
-   jack_client_t *client = to_jack_client_t(params->client);
+   jack_client_t *client = (jack_client_t*)params->client;
    jack_port_t *port;
 
    TRACE("client=%p, name=%s, type=%s, flags=0x%lx, buffer_size=%lu\n",
@@ -255,7 +235,7 @@ static NTSTATUS linux_jack_port_register(void *args)
    port = jack_port_register(client, params->port_name, params->port_type,
                               params->flags, params->buffer_size);
 
-   params->port = to_wine_jack_port_t(port);
+   params->port = (wine_jack_port_t*)port;
 
    return params->port? _STATUS_SUCCESS : _STATUS_INVALID_PARAMETER;
 }
