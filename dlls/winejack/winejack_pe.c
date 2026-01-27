@@ -68,7 +68,7 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, void *reserved)
 /***********************************************************************
  *           jack_activate
  */
-int32_t WINAPI jack_activate(wine_jack_client_t client)
+int32_t WINAPI jack_activate(wine_jack_client_t* client)
 {
     struct jack_activate_params params = {
         .client = client,
@@ -78,7 +78,7 @@ int32_t WINAPI jack_activate(wine_jack_client_t client)
 
     if (!sInitialized || !client) return -1;
 
-    TRACE("client=0x%llx\n", (unsigned long long)client);
+    TRACE("client=%p\n", client);
 
     nts = UNIX_CALL(jack_activate_id, &params);
 
@@ -91,7 +91,7 @@ int32_t WINAPI jack_activate(wine_jack_client_t client)
 /***********************************************************************
  *           jack_client_close
  */
-int32_t WINAPI jack_client_close(wine_jack_client_t client)
+int32_t WINAPI jack_client_close(wine_jack_client_t* client)
 {
     struct jack_client_close_params params = {
         .client = client,
@@ -101,7 +101,7 @@ int32_t WINAPI jack_client_close(wine_jack_client_t client)
 
     if (!sInitialized || !client) return -1;
 
-    TRACE("client=0x%llx\n", (unsigned long long)client);
+    TRACE("client=%p\n", client);
 
     nts = UNIX_CALL(jack_client_close_id, &params);
 
@@ -114,7 +114,7 @@ int32_t WINAPI jack_client_close(wine_jack_client_t client)
 /***********************************************************************
  *           jack_client_open
  */ 
-UINT64 WINAPI jack_client_open(const char *client_name, wine_jack_options_t options, wine_jack_status_t *status)
+wine_jack_client_t* WINAPI jack_client_open(const char *client_name, wine_jack_options_t options, wine_jack_status_t *status)
 {
     struct jack_client_open_params params = {
         .client_name = client_name,
@@ -146,7 +146,7 @@ UINT64 WINAPI jack_client_open(const char *client_name, wine_jack_options_t opti
 /***********************************************************************
  *           jack_get_ports
  */
-const char** WINAPI jack_get_ports(UINT64 client, const char* port_name_pattern,
+const char** WINAPI jack_get_ports(wine_jack_client_t* client, const char* port_name_pattern,
                                    const char* type_name_pattern, uint64_t flags)
 {
     struct jack_get_ports_params params = {
@@ -160,8 +160,8 @@ const char** WINAPI jack_get_ports(UINT64 client, const char* port_name_pattern,
 
     if (!sInitialized || !client) return 0;
 
-    TRACE("client=0x%llx, name_pat=%s, type_pat=%s, flags=0x%llx\n",
-          (unsigned long long)client, port_name_pattern, type_name_pattern, flags);
+    TRACE("client=%p, name_pat=%s, type_pat=%s, flags=0x%llx\n",
+          client, port_name_pattern, type_name_pattern, flags);
 
     nts = UNIX_CALL(jack_get_ports_id, &params);
 
@@ -174,7 +174,7 @@ const char** WINAPI jack_get_ports(UINT64 client, const char* port_name_pattern,
 /***********************************************************************
  *           jack_get_sample_rate
  */
-wine_jack_nframes_t WINAPI jack_get_sample_rate(UINT64 client)
+wine_jack_nframes_t WINAPI jack_get_sample_rate(wine_jack_client_t* client)
 {
     struct jack_get_sample_rate_params params = {
         .client = client,
@@ -184,7 +184,7 @@ wine_jack_nframes_t WINAPI jack_get_sample_rate(UINT64 client)
 
     if (!sInitialized || !client) return 0;
 
-    TRACE("client=0x%llx\n", 
+    TRACE("client=%p\n", 
         client);
    
     nts = UNIX_CALL(jack_get_sample_rate_id, &params);
@@ -198,7 +198,7 @@ wine_jack_nframes_t WINAPI jack_get_sample_rate(UINT64 client)
 /***********************************************************************
  *           jack_set_process_callback
  */
-int WINAPI jack_set_process_callback(UINT64 client, void* process_callback, void* arg)
+int WINAPI jack_set_process_callback(wine_jack_client_t* client, void* process_callback, void* arg)
 {
     struct jack_set_process_callback_params params = {
         .client = client,
@@ -209,8 +209,8 @@ int WINAPI jack_set_process_callback(UINT64 client, void* process_callback, void
 
     if (!sInitialized || !client) return 0;
 
-    TRACE("client=0x%llx, callback=%p, arg=%p\n",
-          (unsigned long long)client, params.process_callback, params.arg);
+    TRACE("client=%p, callback=%p, arg=%p\n",
+          client, params.process_callback, params.arg);
 
     nts = UNIX_CALL(jack_set_process_callback_id, &params);
 
@@ -223,7 +223,7 @@ int WINAPI jack_set_process_callback(UINT64 client, void* process_callback, void
 /***********************************************************************
  *           jack_on_shutdown
  */
-void WINAPI jack_on_shutdown(UINT64 client, void* shutdown_callback, void* arg)
+void WINAPI jack_on_shutdown(wine_jack_client_t* client, void* shutdown_callback, void* arg)
 {
     struct jack_on_shutdown_params params = {
         .client = client,
@@ -234,8 +234,8 @@ void WINAPI jack_on_shutdown(UINT64 client, void* shutdown_callback, void* arg)
 
     if (!sInitialized || !client) return;
 
-    TRACE("client=0x%llx, callback=%p, arg=%p\n",
-          (unsigned long long)client, params.shutdown_callback, params.arg);
+    TRACE("client=%p, callback=%p, arg=%p\n",
+          client, params.shutdown_callback, params.arg);
 
     nts = UNIX_CALL(jack_on_shutdown_id, &params);
 
@@ -246,7 +246,7 @@ void WINAPI jack_on_shutdown(UINT64 client, void* shutdown_callback, void* arg)
 /***********************************************************************
  *           jack_connect
  */
-int WINAPI jack_connect(UINT64 client, const char* source_port, const char* destination_port)
+int WINAPI jack_connect(wine_jack_client_t* client, const char* source_port, const char* destination_port)
 {
     struct jack_connect_params params = {
         .client = client,
@@ -258,8 +258,8 @@ int WINAPI jack_connect(UINT64 client, const char* source_port, const char* dest
 
     if (!sInitialized || !client) return -1;
 
-    TRACE("client=0x%llx, src=%s, dst=%s\n",
-          (unsigned long long)client, source_port, destination_port);
+    TRACE("client=%p, src=%s, dst=%s\n",
+          client, source_port, destination_port);
 
     nts = UNIX_CALL(jack_connect_id, &params);
 
@@ -272,7 +272,7 @@ int WINAPI jack_connect(UINT64 client, const char* source_port, const char* dest
 /***********************************************************************
  *           jack_disconnect
  */
-int WINAPI jack_disconnect(UINT64 client, const char *source_port, const char *destination_port)
+int WINAPI jack_disconnect(wine_jack_client_t* client, const char *source_port, const char *destination_port)
 {
     struct jack_disconnect_params params = {
         .client = client,
@@ -284,8 +284,8 @@ int WINAPI jack_disconnect(UINT64 client, const char *source_port, const char *d
 
     if (!sInitialized || !client) return -1;
 
-    TRACE("client=0x%llx, src=%s, dst=%s\n",
-          (unsigned long long)client, source_port, destination_port);
+    TRACE("client=%p, src=%s, dst=%s\n",
+          client, source_port, destination_port);
 
     nts = UNIX_CALL(jack_disconnect_id, &params);
 
@@ -298,7 +298,7 @@ int WINAPI jack_disconnect(UINT64 client, const char *source_port, const char *d
 /***********************************************************************
  *           jack_port_get_buffer
  */
-void* WINAPI jack_port_get_buffer(UINT64 port, wine_jack_nframes_t nframes)
+void* WINAPI jack_port_get_buffer(wine_jack_port_t* port, wine_jack_nframes_t nframes)
 {
     struct jack_port_get_buffer_params params = {
         .port = port,
@@ -309,7 +309,7 @@ void* WINAPI jack_port_get_buffer(UINT64 port, wine_jack_nframes_t nframes)
 
     if (!sInitialized) return 0;
 
-    TRACE("port=0x%llx, nframes=%d\n", 
+    TRACE("port=%p, nframes=%d\n", 
         port, nframes);
 
     nts = UNIX_CALL(jack_port_get_buffer_id, &params);
@@ -323,7 +323,7 @@ void* WINAPI jack_port_get_buffer(UINT64 port, wine_jack_nframes_t nframes)
 /***********************************************************************
  *           jack_port_name
  */
-const char* WINAPI jack_port_name(UINT64 port)
+const char* WINAPI jack_port_name(wine_jack_port_t* port)
 {
     struct jack_port_name_params params = {
         .port = port,
@@ -333,7 +333,7 @@ const char* WINAPI jack_port_name(UINT64 port)
 
     if (!sInitialized || !port) return FALSE;
 
-    TRACE("port=0x%llx\n", port);
+    TRACE("port=%p\n", port);
 
     nts = UNIX_CALL(jack_port_name_id, &params);
 
@@ -346,9 +346,9 @@ const char* WINAPI jack_port_name(UINT64 port)
 /***********************************************************************
  *           jack_port_register
  */
-UINT64 WINAPI jack_port_register(UINT64 client, const char *port_name,
-                                 const char *port_type, uint64_t flags,
-                                 uint64_t buffer_size)
+wine_jack_port_t* WINAPI jack_port_register(wine_jack_client_t* client, const char *port_name,
+                                            const char *port_type, uint64_t flags,
+                                            uint64_t buffer_size)
 {
     struct jack_port_register_params params = {
         .client = client,
@@ -362,8 +362,8 @@ UINT64 WINAPI jack_port_register(UINT64 client, const char *port_name,
 
     if (!sInitialized || !client) return 0;
 
-    TRACE("client=0x%llx, name=%s, type=%s, flags=0x%llx\n",
-          (unsigned long long)client, port_name, port_type, flags);
+    TRACE("client=%p, name=%s, type=%s, flags=0x%llx\n",
+          client, port_name, port_type, flags);
 
     nts = UNIX_CALL(jack_port_register_id, &params);
 
