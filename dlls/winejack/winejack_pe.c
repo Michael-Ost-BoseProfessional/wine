@@ -36,10 +36,6 @@
 // If you need 32-bit PE support, all char* params must be changed to uint64_t and 
 // strings must be copied between layers.
 C_ASSERT(sizeof(char*) == sizeof(uint64_t));
-// Likewise for passing these int types between layers
-C_ASSERT(sizeof(jack_options_t) == sizeof(uint32_t));
-C_ASSERT(sizeof(jack_status_t) == sizeof(uint32_t));
-C_ASSERT(sizeof(jack_nframes_t) == sizeof(uint32_t));
 
 WINE_DEFAULT_DEBUG_CHANNEL(jack);
 
@@ -72,18 +68,22 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, void *reserved)
 /***********************************************************************
  *           jack_activate
  */
-int WINAPI jack_activate(UINT64 client)
+int32_t WINAPI jack_activate(wine_jack_client_t client)
 {
     struct jack_activate_params params = {
         .client = client,
         .result = -1
     };
+    NTSTATUS nts;
 
     if (!sInitialized || !client) return -1;
 
     TRACE("client=0x%llx\n", (unsigned long long)client);
 
-    UNIX_CALL(unix_jack_activate_id, &params);
+    nts = UNIX_CALL(jack_activate_id, &params);
+
+    if (nts != _STATUS_SUCCESS)
+        TRACE("unix call failed: 0x%lx\n", nts);
 
     return params.result;
 }
@@ -91,18 +91,22 @@ int WINAPI jack_activate(UINT64 client)
 /***********************************************************************
  *           jack_client_close
  */
-int WINAPI jack_client_close(UINT64 client)
+int32_t WINAPI jack_client_close(wine_jack_client_t client)
 {
     struct jack_client_close_params params = {
         .client = client,
         .result = -1
     };
+    NTSTATUS nts;
 
     if (!sInitialized || !client) return -1;
 
     TRACE("client=0x%llx\n", (unsigned long long)client);
 
-    UNIX_CALL(jack_client_close_id, &params);
+    nts = UNIX_CALL(jack_client_close_id, &params);
+
+    if (nts != _STATUS_SUCCESS)
+        TRACE("unix call failed: 0x%lx\n", nts);
 
     return params.result;
 }
@@ -110,7 +114,7 @@ int WINAPI jack_client_close(UINT64 client)
 /***********************************************************************
  *           jack_client_open
  */ 
-UINT64 WINAPI jack_client_open(const char *client_name, jack_options_t options, jack_status_t *status)
+UINT64 WINAPI jack_client_open(const char *client_name, wine_jack_options_t options, wine_jack_status_t *status)
 {
     struct jack_client_open_params params = {
         .client_name = client_name,
@@ -131,13 +135,10 @@ UINT64 WINAPI jack_client_open(const char *client_name, jack_options_t options, 
 
     nts = UNIX_CALL(jack_client_open_id, &params);
 
-    if (status) *status = params.status;
-
     if (nts != _STATUS_SUCCESS)
-    {
-        ERR("unix call failed: 0x%lx\n", nts);
-        return 0;
-    }    
+        TRACE("unix call failed: 0x%lx\n", nts);
+
+    if (status) *status = params.status;
 
     return params.client;
 }    
@@ -146,7 +147,7 @@ UINT64 WINAPI jack_client_open(const char *client_name, jack_options_t options, 
  *           jack_get_ports
  */
 const char** WINAPI jack_get_ports(UINT64 client, const char* port_name_pattern,
-                                   const char* type_name_pattern, unsigned long flags)
+                                   const char* type_name_pattern, uint64_t flags)
 {
     struct jack_get_ports_params params = {
         .client = client,
@@ -155,13 +156,17 @@ const char** WINAPI jack_get_ports(UINT64 client, const char* port_name_pattern,
         .flags = flags,
         .ports_buffer = 0,
     };
+    NTSTATUS nts;
 
     if (!sInitialized || !client) return 0;
 
-    TRACE("client=0x%llx, name_pat=%s, type_pat=%s, flags=0x%lx\n",
+    TRACE("client=0x%llx, name_pat=%s, type_pat=%s, flags=0x%llx\n",
           (unsigned long long)client, port_name_pattern, type_name_pattern, flags);
 
-    UNIX_CALL(jack_get_ports_id, &params);
+    nts = UNIX_CALL(jack_get_ports_id, &params);
+
+    if (nts != _STATUS_SUCCESS)
+        TRACE("unix call failed: 0x%lx\n", nts);
 
     return params.ports_buffer;
 }
@@ -169,19 +174,23 @@ const char** WINAPI jack_get_ports(UINT64 client, const char* port_name_pattern,
 /***********************************************************************
  *           jack_get_sample_rate
  */
-UINT32 WINAPI jack_get_sample_rate(UINT64 client)
+wine_jack_nframes_t WINAPI jack_get_sample_rate(UINT64 client)
 {
     struct jack_get_sample_rate_params params = {
         .client = client,
         .sample_rate = 0
     };
+    NTSTATUS nts;
 
     if (!sInitialized || !client) return 0;
 
     TRACE("client=0x%llx\n", 
         client);
    
-    params.sample_rate = UNIX_CALL(jack_get_sample_rate_id, &params);
+    nts = UNIX_CALL(jack_get_sample_rate_id, &params);
+
+    if (nts != _STATUS_SUCCESS)
+        TRACE("unix call failed: 0x%lx\n", nts);
 
     return params.sample_rate;
 }
@@ -194,16 +203,19 @@ int WINAPI jack_set_process_callback(UINT64 client, void* process_callback, void
     struct jack_set_process_callback_params params = {
         .client = client,
         .process_callback = process_callback,
-        .arg = arg,
-        result = 0
+        .arg = arg
     };
+    NTSTATUS nts;
 
     if (!sInitialized || !client) return 0;
 
     TRACE("client=0x%llx, callback=%p, arg=%p\n",
           (unsigned long long)client, params.process_callback, params.arg);
 
-    UNIX_CALL(jack_set_process_callback_id, &params);
+    nts = UNIX_CALL(jack_set_process_callback_id, &params);
+
+    if (nts != _STATUS_SUCCESS)
+        TRACE("unix call failed: 0x%lx\n", nts);
 
     return params.result;
 }
@@ -211,20 +223,24 @@ int WINAPI jack_set_process_callback(UINT64 client, void* process_callback, void
 /***********************************************************************
  *           jack_on_shutdown
  */
-int WINAPI jack_on_shutdown(UINT64 client, void* shutdown_callback, void* arg)
+void WINAPI jack_on_shutdown(UINT64 client, void* shutdown_callback, void* arg)
 {
     struct jack_on_shutdown_params params = {
         .client = client,
         .shutdown_callback = shutdown_callback,
         .arg = arg
     };
+    NTSTATUS nts;
 
-    if (!sInitialized || !client) return 0;
+    if (!sInitialized || !client) return;
 
     TRACE("client=0x%llx, callback=%p, arg=%p\n",
           (unsigned long long)client, params.shutdown_callback, params.arg);
 
-    UNIX_CALL(jack_on_shutdown_id, &params);
+    nts = UNIX_CALL(jack_on_shutdown_id, &params);
+
+    if (nts != _STATUS_SUCCESS)
+        TRACE("unix call failed: 0x%lx\n", nts);
 }
 
 /***********************************************************************
@@ -238,13 +254,17 @@ int WINAPI jack_connect(UINT64 client, const char* source_port, const char* dest
         .destination_port = destination_port,
         .result = 0
     };
+    NTSTATUS nts;
 
     if (!sInitialized || !client) return -1;
 
     TRACE("client=0x%llx, src=%s, dst=%s\n",
           (unsigned long long)client, source_port, destination_port);
 
-    UNIX_CALL(jack_connect_id, &params);
+    nts = UNIX_CALL(jack_connect_id, &params);
+
+    if (nts != _STATUS_SUCCESS)
+        TRACE("unix call failed: 0x%lx\n", nts);
 
     return params.result;
 }
@@ -260,13 +280,17 @@ int WINAPI jack_disconnect(UINT64 client, const char *source_port, const char *d
         .destination_port = destination_port,
         .result = 0
     };
+    NTSTATUS nts;
 
     if (!sInitialized || !client) return -1;
 
     TRACE("client=0x%llx, src=%s, dst=%s\n",
           (unsigned long long)client, source_port, destination_port);
 
-    UNIX_CALL(jack_disconnect_id, &params);
+    nts = UNIX_CALL(jack_disconnect_id, &params);
+
+    if (nts != _STATUS_SUCCESS)
+        TRACE("unix call failed: 0x%lx\n", nts);
 
     return params.result;
 }
@@ -274,20 +298,24 @@ int WINAPI jack_disconnect(UINT64 client, const char *source_port, const char *d
 /***********************************************************************
  *           jack_port_get_buffer
  */
-UINT64 WINAPI jack_port_get_buffer(UINT64 port, jack_nframes_t nframes)
+void* WINAPI jack_port_get_buffer(UINT64 port, wine_jack_nframes_t nframes)
 {
     struct jack_port_get_buffer_params params = {
         .port = port,
         .nframes = nframes,
         .buffer = 0
     };
+    NTSTATUS nts;
 
-    if (!sInitialized || !client) return 0;
+    if (!sInitialized) return 0;
 
     TRACE("port=0x%llx, nframes=%d\n", 
         port, nframes);
 
-    UNIX_CALL(jack_port_get_buffer_id, &params);
+    nts = UNIX_CALL(jack_port_get_buffer_id, &params);
+
+    if (nts != _STATUS_SUCCESS)
+        TRACE("unix call failed: 0x%lx\n", nts);
 
     return params.buffer;
 }
@@ -295,7 +323,7 @@ UINT64 WINAPI jack_port_get_buffer(UINT64 port, jack_nframes_t nframes)
 /***********************************************************************
  *           jack_port_name
  */
-UINT64 WINAPI jack_port_name(UINT64 port)
+const char* WINAPI jack_port_name(UINT64 port)
 {
     struct jack_port_name_params params = {
         .port = port,
@@ -309,6 +337,9 @@ UINT64 WINAPI jack_port_name(UINT64 port)
 
     nts = UNIX_CALL(jack_port_name_id, &params);
 
+    if (nts != _STATUS_SUCCESS)
+        TRACE("unix call failed: 0x%lx\n", nts);
+
     return params.name;
 }
 
@@ -316,8 +347,8 @@ UINT64 WINAPI jack_port_name(UINT64 port)
  *           jack_port_register
  */
 UINT64 WINAPI jack_port_register(UINT64 client, const char *port_name,
-                                 const char *port_type, unsigned long flags,
-                                 unsigned long buffer_size)
+                                 const char *port_type, uint64_t flags,
+                                 uint64_t buffer_size)
 {
     struct jack_port_register_params params = {
         .client = client,
@@ -327,13 +358,17 @@ UINT64 WINAPI jack_port_register(UINT64 client, const char *port_name,
         .buffer_size = buffer_size,
         .port = 0
     };
+    NTSTATUS nts;
 
     if (!sInitialized || !client) return 0;
 
-    TRACE("client=0x%llx, name=%s, type=%s, flags=0x%lx\n",
+    TRACE("client=0x%llx, name=%s, type=%s, flags=0x%llx\n",
           (unsigned long long)client, port_name, port_type, flags);
 
-    UNIX_CALL(jack_port_register_id, &params);
+    nts = UNIX_CALL(jack_port_register_id, &params);
+
+    if (nts != _STATUS_SUCCESS)
+        TRACE("unix call failed: 0x%lx\n", nts);
 
     return params.port;
 }
@@ -346,11 +381,15 @@ void WINAPI jack_free(void* ptr)
     struct jack_free_params params = {
         .ptr = ptr
     };
+    NTSTATUS nts;
 
     if (!sInitialized || !ptr) return;
 
     TRACE("ptr=%p\n", 
         ptr);
 
-    UNIX_CALL(jack_free_id, &params);
+    nts = UNIX_CALL(jack_free_id, &params);
+
+    if (nts != _STATUS_SUCCESS)
+        TRACE("unix call failed: 0x%lx\n", nts);
 }
