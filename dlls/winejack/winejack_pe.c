@@ -37,7 +37,7 @@
 // strings must be copied between layers.
 C_ASSERT(sizeof(char*) == sizeof(uint64_t));
 
-WINE_DEFAULT_DEBUG_CHANNEL(jack);
+WINE_DEFAULT_DEBUG_CHANNEL(winejack);
 
 #define UNIX_CALL(func, params) WINE_UNIX_CALL(func, params)
 
@@ -308,9 +308,6 @@ void* WINAPI jack_port_get_buffer(wine_jack_port_t* port, wine_jack_nframes_t nf
     NTSTATUS nts;
 
     if (!sInitialized) return 0;
-
-    TRACE("port=%p, nframes=%d\n", 
-        port, nframes);
 
     nts = UNIX_CALL(jack_port_get_buffer_id, &params);
 
