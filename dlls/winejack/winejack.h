@@ -73,6 +73,7 @@ enum JackPortFlags {
 };
 
 typedef uint32_t jack_nframes_t;
+typedef float jack_default_audio_sample_t;
 typedef int (*JackProcessCallback)(jack_nframes_t nframes, void *arg);
 typedef void (*JackShutdownCallback)(void *arg);
 
