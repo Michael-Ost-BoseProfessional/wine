@@ -49,7 +49,7 @@ C_ASSERT(sizeof(jack_nframes_t) == sizeof(wine_jack_nframes_t));
 // strings must be copied between layers.
 C_ASSERT(sizeof(char*) == sizeof(uint64_t));
 
-WINE_DEFAULT_DEBUG_CHANNEL(jack);
+WINE_DEFAULT_DEBUG_CHANNEL(winejack);
 
 /*
  * linux_jack_activate
@@ -59,9 +59,9 @@ static NTSTATUS linux_jack_activate(void* args)
     struct jack_activate_params* params = args;
     jack_client_t* client = (jack_client_t*)params->client;
 
-    TRACE("client=%p\n", client);
-
     params->result = jack_activate(client);
+
+    TRACE("client=%p => result=%d\n", client, params->result);
 
     return params->result == 0? _STATUS_SUCCESS : _STATUS_INVALID_PARAMETER;
 }
@@ -74,9 +74,9 @@ static NTSTATUS linux_jack_client_close(void* args)
     struct jack_client_close_params* params = args;
     jack_client_t* client = (jack_client_t*)params->client;
 
-    TRACE("client=%p\n", client);
-
     params->result = jack_client_close(client);
+
+    TRACE("client=%p => result=%d\n", client, params->result);
 
     return params->result == 0? _STATUS_SUCCESS : _STATUS_INVALID_PARAMETER;
 }    
@@ -89,13 +89,14 @@ static NTSTATUS linux_jack_client_open(void* args)
     struct jack_client_open_params* params = args;
     jack_status_t status;
     jack_client_t* client;
-
-    TRACE("name=%s, options=0x%x\n", params->client_name, params->options);
-
+    
     client = jack_client_open(params->client_name, params->options, &status);
-
+    
     params->status = status;
     params->client = (jack_client_t*)client;
+    
+    TRACE("name=%s, options=0x%x => client=%p, status=%d\n", 
+          params->client_name, params->options, params->client, params->status);
 
     return params->client? _STATUS_SUCCESS : _STATUS_INVALID_PARAMETER;
 }        
@@ -108,12 +109,12 @@ static NTSTATUS linux_jack_get_ports(void *args)
     struct jack_get_ports_params *params = args;
     jack_client_t *client = (jack_client_t*)params->client;
 
-    TRACE("client=%p, name_pattern=%s, type_pattern=%s, flags=0x%lx\n",
-          client, params->port_name_pattern, params->type_name_pattern,
-          params->flags);
-
-    params->ports_buffer = jack_get_ports(client, params->port_name_pattern,
-                                          params->type_name_pattern, params->flags);
+   params->ports_buffer = jack_get_ports(client, params->port_name_pattern,
+        params->type_name_pattern, params->flags);
+        
+    TRACE("client=%p, name_pattern=%s, type_pattern=%s, flags=0x%lx => ports_buffer=%p\n",
+            client, params->port_name_pattern, params->type_name_pattern,
+            params->flags, params->ports_buffer);
 
     return params->ports_buffer? _STATUS_SUCCESS : _STATUS_INVALID_PARAMETER;
 }
@@ -141,6 +142,8 @@ static NTSTATUS linux_jack_set_process_callback(void *args)
 
     params->result = jack_set_process_callback(client, params->process_callback, params->arg);
 
+    TRACE("client=%p => result=%d\n", client, params->result);
+
     return params->result == 0? _STATUS_SUCCESS : _STATUS_INVALID_PARAMETER;
 }
 
@@ -164,12 +167,12 @@ static NTSTATUS linux_jack_connect(void *args)
 {
     struct jack_connect_params *params = args;
     jack_client_t *client = (jack_client_t*)params->client;
-
-    TRACE("client=%p, src=%s, dst=%s\n", client,
-          params->source_port, params->destination_port);
-
+ 
     params->result = jack_connect(client, params->source_port,
-                                   params->destination_port);
+        params->destination_port);
+        
+    TRACE("client=%p, src=%s, dst=%s => result=%d\n", client,
+            params->source_port, params->destination_port, params->result);
 
     return params->result == 0? _STATUS_SUCCESS : 
            params->result == EEXIST? _STATUS_ALREADY_INITIALIZED : 
@@ -183,12 +186,12 @@ static NTSTATUS linux_jack_disconnect(void *args)
 {
     struct jack_disconnect_params *params = args;
     jack_client_t *client = (jack_client_t*)params->client;
-
-    TRACE("client=%p, src=%s, dst=%s\n", client,
-          params->source_port, params->destination_port);
-
+    
     params->result = jack_disconnect(client, params->source_port,
-                                      params->destination_port);
+        params->destination_port);
+        
+    TRACE("client=%p, src=%s, dst=%s => result=%d\n", client,
+            params->source_port, params->destination_port, params->result);
 
     return params->result == 0? _STATUS_SUCCESS : _STATUS_INVALID_PARAMETER;
 }
@@ -203,7 +206,7 @@ static NTSTATUS linux_jack_port_get_buffer(void *args)
 
     params->buffer = jack_port_get_buffer(port, params->nframes);
 
-    return params->buffer == 0? _STATUS_SUCCESS : _STATUS_INVALID_PARAMETER;
+    return params->buffer? _STATUS_SUCCESS : _STATUS_INVALID_PARAMETER;
 }
 
 /*
@@ -213,10 +216,12 @@ static NTSTATUS linux_jack_port_name(void *args)
 {
     struct jack_port_name_params *params = args;
     jack_port_t *port = (jack_port_t*)params->port;
-
+ 
     params->name = jack_port_name(port);
+    
+    TRACE("port=%p => name=%s\n", port, params->name);
 
-    return params->name == 0? _STATUS_SUCCESS : _STATUS_INVALID_PARAMETER;
+    return params->name? _STATUS_SUCCESS : _STATUS_INVALID_PARAMETER;
 }
 
 /*
@@ -228,14 +233,13 @@ static NTSTATUS linux_jack_port_register(void *args)
    jack_client_t *client = (jack_client_t*)params->client;
    jack_port_t *port;
 
-   TRACE("client=%p, name=%s, type=%s, flags=0x%lx, buffer_size=%lu\n",
-         client, params->port_name, params->port_type,
-         params->flags, params->buffer_size);
-
-   port = jack_port_register(client, params->port_name, params->port_type,
-                              params->flags, params->buffer_size);
-
+   port = jack_port_register(client, params->port_name, params->port_type, params->flags, params->buffer_size);
+    
    params->port = (wine_jack_port_t*)port;
+
+   TRACE("client=%p, name=%s, type=%s, flags=0x%lx, buffer_size=%lu => port=%p\n",
+         client, params->port_name, params->port_type,
+         params->flags, params->buffer_size, params->port);
 
    return params->port? _STATUS_SUCCESS : _STATUS_INVALID_PARAMETER;
 }
