@@ -34,6 +34,11 @@ typedef uint32_t wine_jack_nframes_t;
 
 /* Parameter structures for each function */
 
+struct process_attach_params
+{
+    uint64_t pe_process_callback;
+};
+
 struct jack_activate_params
 {
     wine_jack_client_t* client;
@@ -82,7 +87,7 @@ struct jack_get_sample_rate_params
 struct jack_set_process_callback_params
 {
     wine_jack_client_t* client;
-    void* process_callback;
+    void* pe_process_callback;
     void* arg;
 
     /* outputs */
@@ -152,9 +157,27 @@ struct jack_free_params
     void* ptr;
 };
 
+/* Linux to PE wrapper for the JACK process callback */
+struct pe_process_callback_params
+{
+    // See ntuser.h (which is difficult to include here)
+    struct _dispatch_callback_params {
+        uint64_t callback;
+    } dispatch;
+
+    uint64_t pe_callback;
+    wine_jack_nframes_t nframes;
+    void* arg;
+
+    /* output */
+    int32_t result;
+};
+
 /* Function enumeration - must match __wine_unix_call_funcs order */
 enum wine_jack_func_ids
 {
+    process_attach_id,
+
     jack_activate_id,
     jack_client_close_id,
     jack_client_open_id,

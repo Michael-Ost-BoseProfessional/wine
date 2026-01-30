@@ -41,6 +41,8 @@ WINE_DEFAULT_DEBUG_CHANNEL(winejack);
 
 static BOOL sInitialized = FALSE;
 
+static NTSTATUS WINAPI pe_process_callback(void *args, ULONG len);
+
 /***********************************************************************
  *           DllMain
  */
@@ -49,14 +51,30 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, void *reserved)
     switch (reason)
     {
     case DLL_PROCESS_ATTACH:
+    {
+        struct process_attach_params params;
+        NTSTATUS status;
+
         DisableThreadLibraryCalls(instance);
-        if (__wine_init_unix_call()) {
-            ERR("Failed to initialize unix call interface\n");
+
+        status = __wine_init_unix_call();
+        if (status) {
+            ERR("Failed to initialize unix call interface: 0x%lx\n", status);
             return FALSE;
         }
+
+        // Pass a PE callback to the linux side that it will invoke
+        params.pe_process_callback = (uint64_t) pe_process_callback;
+        status = WINE_UNIX_CALL(process_attach_id, &params);
+        if (status) {
+            ERR("Failed to register process callback: 0x%lx\n", status);
+            return FALSE;
+        }
+
         sInitialized = TRUE;
         TRACE("winejack loaded\n");
         break;
+    }
     case DLL_PROCESS_DETACH:
         break;
     }
@@ -193,8 +211,9 @@ int WINAPI jack_set_process_callback(wine_jack_client_t* client, void* process_c
 {
     struct jack_set_process_callback_params params = {
         .client = client,
-        .process_callback = process_callback,
-        .arg = arg
+        .pe_process_callback = process_callback,
+        .arg = arg,
+        .result = -1
     };
     NTSTATUS nts;
 
@@ -369,4 +388,27 @@ void WINAPI jack_free(void* ptr)
     TRACE("ptr=%p\n", ptr);
     if (nts != _STATUS_SUCCESS)
         ERR("unix call failed: 0x%lx\n", nts);
+}
+
+/***********************************************************************
+ *           pe_process_callback
+ *
+ */
+static NTSTATUS WINAPI pe_process_callback(void *args, ULONG len)
+{
+    typedef int (*JackProcessCallback)(wine_jack_nframes_t nframes, void *arg);
+
+    struct pe_process_callback_params *params = args;
+    JackProcessCallback pe_callback;
+    int32_t result;
+
+    if (len < sizeof(*params) || !params->pe_callback)
+        return _STATUS_INVALID_PARAMETER;
+
+    // Execute the PE jack processing callback via Wine's KeUserDispatchCallback mechanism
+    pe_callback = (JackProcessCallback)params->pe_callback;
+    result = pe_callback(params->nframes, params->arg);
+
+    // Return result to Unix side
+    return NtCallbackReturn(&result, sizeof(result), _STATUS_SUCCESS);
 }
