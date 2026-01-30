@@ -22,12 +22,11 @@
 #endif
 
 #include "winejack_unixlib.h"
-#include "wine/unixlib.h"
 
-#include "windef.h"
 #include "winternl.h"
 #include "wine/debug.h"
 #include "wine/unixlib.h"
+#include "ntuser.h"
 // TODO: fix these includes
 #define _STATUS_SUCCESS             ((NTSTATUS) 0x00000000)
 #define _STATUS_INVALID_PARAMETER   ((NTSTATUS) 0xC000000D)
@@ -61,8 +60,6 @@ static NTSTATUS linux_jack_activate(void* args)
 
     params->result = jack_activate(client);
 
-    TRACE("client=%p => result=%d\n", client, params->result);
-
     return params->result == 0? _STATUS_SUCCESS : _STATUS_INVALID_PARAMETER;
 }
 
@@ -75,8 +72,6 @@ static NTSTATUS linux_jack_client_close(void* args)
     jack_client_t* client = (jack_client_t*)params->client;
 
     params->result = jack_client_close(client);
-
-    TRACE("client=%p => result=%d\n", client, params->result);
 
     return params->result == 0? _STATUS_SUCCESS : _STATUS_INVALID_PARAMETER;
 }    
@@ -95,9 +90,6 @@ static NTSTATUS linux_jack_client_open(void* args)
     params->status = status;
     params->client = (jack_client_t*)client;
     
-    TRACE("name=%s, options=0x%x => client=%p, status=%d\n", 
-          params->client_name, params->options, params->client, params->status);
-
     return params->client? _STATUS_SUCCESS : _STATUS_INVALID_PARAMETER;
 }        
 
@@ -109,13 +101,9 @@ static NTSTATUS linux_jack_get_ports(void *args)
     struct jack_get_ports_params *params = args;
     jack_client_t *client = (jack_client_t*)params->client;
 
-   params->ports_buffer = jack_get_ports(client, params->port_name_pattern,
+    params->ports_buffer = jack_get_ports(client, params->port_name_pattern,
         params->type_name_pattern, params->flags);
         
-    TRACE("client=%p, name_pattern=%s, type_pattern=%s, flags=0x%lx => ports_buffer=%p\n",
-            client, params->port_name_pattern, params->type_name_pattern,
-            params->flags, params->ports_buffer);
-
     return params->ports_buffer? _STATUS_SUCCESS : _STATUS_INVALID_PARAMETER;
 }
 
@@ -140,9 +128,7 @@ static NTSTATUS linux_jack_set_process_callback(void *args)
     struct jack_set_process_callback_params *params = args;
     jack_client_t *client = (jack_client_t*)params->client;
 
-    params->result = jack_set_process_callback(client, params->process_callback, params->arg);
-
-    TRACE("client=%p => result=%d\n", client, params->result);
+   params->result = jack_set_process_callback(client, params->process_callback, params->arg);
 
     return params->result == 0? _STATUS_SUCCESS : _STATUS_INVALID_PARAMETER;
 }
@@ -171,9 +157,6 @@ static NTSTATUS linux_jack_connect(void *args)
     params->result = jack_connect(client, params->source_port,
         params->destination_port);
         
-    TRACE("client=%p, src=%s, dst=%s => result=%d\n", client,
-            params->source_port, params->destination_port, params->result);
-
     return params->result == 0? _STATUS_SUCCESS : 
            params->result == EEXIST? _STATUS_ALREADY_INITIALIZED : 
            _STATUS_INVALID_PARAMETER;
@@ -205,7 +188,7 @@ static NTSTATUS linux_jack_port_get_buffer(void *args)
     jack_port_t *port = (jack_port_t*)params->port;
 
     params->buffer = jack_port_get_buffer(port, params->nframes);
-
+ 
     return params->buffer? _STATUS_SUCCESS : _STATUS_INVALID_PARAMETER;
 }
 
@@ -219,8 +202,6 @@ static NTSTATUS linux_jack_port_name(void *args)
  
     params->name = jack_port_name(port);
     
-    TRACE("port=%p => name=%s\n", port, params->name);
-
     return params->name? _STATUS_SUCCESS : _STATUS_INVALID_PARAMETER;
 }
 
@@ -237,10 +218,6 @@ static NTSTATUS linux_jack_port_register(void *args)
     
    params->port = (wine_jack_port_t*)port;
 
-   TRACE("client=%p, name=%s, type=%s, flags=0x%lx, buffer_size=%lu => port=%p\n",
-         client, params->port_name, params->port_type,
-         params->flags, params->buffer_size, params->port);
-
    return params->port? _STATUS_SUCCESS : _STATUS_INVALID_PARAMETER;
 }
 
@@ -256,10 +233,12 @@ static NTSTATUS linux_jack_free(void *args)
 }
 
 /*
- * Unixlib function table
+ * Unixlib function table - must match enum wine_jack_func_ids order
  */
 const unixlib_entry_t __wine_unix_call_funcs[] =
 {
+    linux_process_attach,
+
     linux_jack_activate,
     linux_jack_client_close,
     linux_jack_client_open,
