@@ -39,8 +39,6 @@ C_ASSERT(sizeof(char*) == sizeof(uint64_t));
 
 WINE_DEFAULT_DEBUG_CHANNEL(winejack);
 
-#define UNIX_CALL(func, params) WINE_UNIX_CALL(func, params)
-
 static BOOL sInitialized = FALSE;
 
 /***********************************************************************
@@ -78,12 +76,11 @@ int32_t WINAPI jack_activate(wine_jack_client_t* client)
 
     if (!sInitialized || !client) return -1;
 
-    TRACE("client=%p\n", client);
-
-    nts = UNIX_CALL(jack_activate_id, &params);
-
+    nts = WINE_UNIX_CALL(jack_activate_id, &params);
+    
+    TRACE("client=%p => result=%d\n", client, params.result);
     if (nts != _STATUS_SUCCESS)
-        TRACE("unix call failed: 0x%lx\n", nts);
+        ERR("unix call failed: 0x%lx\n", nts);
 
     return params.result;
 }
@@ -101,12 +98,11 @@ int32_t WINAPI jack_client_close(wine_jack_client_t* client)
 
     if (!sInitialized || !client) return -1;
 
-    TRACE("client=%p\n", client);
-
-    nts = UNIX_CALL(jack_client_close_id, &params);
-
+    nts = WINE_UNIX_CALL(jack_client_close_id, &params);
+    
+    TRACE("client=%p => result=%d\n", client, params.result);
     if (nts != _STATUS_SUCCESS)
-        TRACE("unix call failed: 0x%lx\n", nts);
+        ERR("unix call failed: 0x%lx\n", nts);
 
     return params.result;
 }
@@ -131,12 +127,11 @@ wine_jack_client_t* WINAPI jack_client_open(const char *client_name, wine_jack_o
         return 0;
     }    
 
-    TRACE("name=%s, options=0x%x\n", client_name, options);
-
-    nts = UNIX_CALL(jack_client_open_id, &params);
-
+    nts = WINE_UNIX_CALL(jack_client_open_id, &params);
+    
+    TRACE("name=%s, options=0x%x => client=%p, status=%d\n", client_name, options, params.client, params.status);
     if (nts != _STATUS_SUCCESS)
-        TRACE("unix call failed: 0x%lx\n", nts);
+        ERR("unix call failed: 0x%lx\n", nts);
 
     if (status) *status = params.status;
 
@@ -160,13 +155,12 @@ const char** WINAPI jack_get_ports(wine_jack_client_t* client, const char* port_
 
     if (!sInitialized || !client) return 0;
 
-    TRACE("client=%p, name_pat=%s, type_pat=%s, flags=0x%llx\n",
-          client, port_name_pattern, type_name_pattern, flags);
-
-    nts = UNIX_CALL(jack_get_ports_id, &params);
-
+    nts = WINE_UNIX_CALL(jack_get_ports_id, &params);
+    
+    TRACE("client=%p, name_pat=%s, type_pat=%s, flags=0x%llx => ports_buffer=%p\n", client, port_name_pattern, 
+          type_name_pattern, flags, params.ports_buffer);
     if (nts != _STATUS_SUCCESS)
-        TRACE("unix call failed: 0x%lx\n", nts);
+        ERR("unix call failed: 0x%lx\n", nts);
 
     return params.ports_buffer;
 }
@@ -184,13 +178,10 @@ wine_jack_nframes_t WINAPI jack_get_sample_rate(wine_jack_client_t* client)
 
     if (!sInitialized || !client) return 0;
 
-    TRACE("client=%p\n", 
-        client);
-   
-    nts = UNIX_CALL(jack_get_sample_rate_id, &params);
+    nts = WINE_UNIX_CALL(jack_get_sample_rate_id, &params);
 
     if (nts != _STATUS_SUCCESS)
-        TRACE("unix call failed: 0x%lx\n", nts);
+        ERR("unix call failed: 0x%lx\n", nts);
 
     return params.sample_rate;
 }
@@ -209,13 +200,12 @@ int WINAPI jack_set_process_callback(wine_jack_client_t* client, void* process_c
 
     if (!sInitialized || !client) return 0;
 
-    TRACE("client=%p, callback=%p, arg=%p\n",
-          client, params.process_callback, params.arg);
+    nts = WINE_UNIX_CALL(jack_set_process_callback_id, &params);
 
-    nts = UNIX_CALL(jack_set_process_callback_id, &params);
-
+    TRACE("client=%p, callback=%p, arg=%p => result=%d\n",
+          client, process_callback, arg, params.result);
     if (nts != _STATUS_SUCCESS)
-        TRACE("unix call failed: 0x%lx\n", nts);
+        ERR("unix call failed: 0x%lx\n", nts);
 
     return params.result;
 }
@@ -234,13 +224,11 @@ void WINAPI jack_on_shutdown(wine_jack_client_t* client, void* shutdown_callback
 
     if (!sInitialized || !client) return;
 
-    TRACE("client=%p, callback=%p, arg=%p\n",
-          client, params.shutdown_callback, params.arg);
-
-    nts = UNIX_CALL(jack_on_shutdown_id, &params);
-
+    nts = WINE_UNIX_CALL(jack_on_shutdown_id, &params);
+    
+    TRACE("client=%p, callback=%p, arg=%p\n", client, shutdown_callback, arg);
     if (nts != _STATUS_SUCCESS)
-        TRACE("unix call failed: 0x%lx\n", nts);
+        ERR("unix call failed: 0x%lx\n", nts);
 }
 
 /***********************************************************************
@@ -258,13 +246,11 @@ int WINAPI jack_connect(wine_jack_client_t* client, const char* source_port, con
 
     if (!sInitialized || !client) return -1;
 
-    TRACE("client=%p, src=%s, dst=%s\n",
-          client, source_port, destination_port);
-
-    nts = UNIX_CALL(jack_connect_id, &params);
-
+    nts = WINE_UNIX_CALL(jack_connect_id, &params);
+    
+    TRACE("client=%p, src=%s, dst=%s => result=%d\n", client, source_port, destination_port, params.result);
     if (nts != _STATUS_SUCCESS)
-        TRACE("unix call failed: 0x%lx\n", nts);
+        ERR("unix call failed: 0x%lx\n", nts);
 
     return params.result;
 }
@@ -284,13 +270,12 @@ int WINAPI jack_disconnect(wine_jack_client_t* client, const char *source_port, 
 
     if (!sInitialized || !client) return -1;
 
-    TRACE("client=%p, src=%s, dst=%s\n",
-          client, source_port, destination_port);
-
-    nts = UNIX_CALL(jack_disconnect_id, &params);
-
+    
+    nts = WINE_UNIX_CALL(jack_disconnect_id, &params);
+    
+    TRACE("client=%p, src=%s, dst=%s => result=%d\n", client, source_port, destination_port, params.result);
     if (nts != _STATUS_SUCCESS)
-        TRACE("unix call failed: 0x%lx\n", nts);
+        ERR("unix call failed: 0x%lx\n", nts);
 
     return params.result;
 }
@@ -330,12 +315,11 @@ const char* WINAPI jack_port_name(wine_jack_port_t* port)
 
     if (!sInitialized || !port) return FALSE;
 
-    TRACE("port=%p\n", port);
-
-    nts = UNIX_CALL(jack_port_name_id, &params);
-
+    nts = WINE_UNIX_CALL(jack_port_name_id, &params);
+    
+    TRACE("port=%p => name=%s\n", port, params.name);
     if (nts != _STATUS_SUCCESS)
-        TRACE("unix call failed: 0x%lx\n", nts);
+        ERR("unix call failed: 0x%lx\n", nts);
 
     return params.name;
 }
@@ -359,13 +343,11 @@ wine_jack_port_t* WINAPI jack_port_register(wine_jack_client_t* client, const ch
 
     if (!sInitialized || !client) return 0;
 
-    TRACE("client=%p, name=%s, type=%s, flags=0x%llx\n",
-          client, port_name, port_type, flags);
-
-    nts = UNIX_CALL(jack_port_register_id, &params);
-
+    nts = WINE_UNIX_CALL(jack_port_register_id, &params);
+    
+    TRACE("client=%p, name=%s, type=%s, flags=0x%llx => port=%p\n", client, port_name, port_type, flags, params.port);
     if (nts != _STATUS_SUCCESS)
-        TRACE("unix call failed: 0x%lx\n", nts);
+        ERR("unix call failed: 0x%lx\n", nts);
 
     return params.port;
 }
@@ -382,11 +364,9 @@ void WINAPI jack_free(void* ptr)
 
     if (!sInitialized || !ptr) return;
 
-    TRACE("ptr=%p\n", 
-        ptr);
+    nts = WINE_UNIX_CALL(jack_free_id, &params);
 
-    nts = UNIX_CALL(jack_free_id, &params);
-
+    TRACE("ptr=%p\n", ptr);
     if (nts != _STATUS_SUCCESS)
-        TRACE("unix call failed: 0x%lx\n", nts);
+        ERR("unix call failed: 0x%lx\n", nts);
 }
