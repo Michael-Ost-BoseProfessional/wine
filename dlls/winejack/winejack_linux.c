@@ -26,6 +26,7 @@
 #include "winternl.h"
 #include "wine/debug.h"
 #include "wine/unixlib.h"
+#include "ntuser.h"
 // TODO: fix these includes
 #define _STATUS_SUCCESS             ((NTSTATUS) 0x00000000)
 #define _STATUS_INVALID_PARAMETER   ((NTSTATUS) 0xC000000D)
@@ -48,6 +49,20 @@ C_ASSERT(sizeof(jack_nframes_t) == sizeof(wine_jack_nframes_t));
 C_ASSERT(sizeof(char*) == sizeof(uint64_t));
 
 WINE_DEFAULT_DEBUG_CHANNEL(winejack);
+
+static uint64_t pe_process_callback;
+
+/*
+ * linux_process_attach
+ */
+static NTSTATUS linux_process_attach(void *args)
+{
+    struct process_attach_params *params = args;
+
+    pe_process_callback = params->pe_process_callback;
+
+    return _STATUS_SUCCESS;
+}
 
 /*
  * linux_jack_activate
@@ -120,14 +135,51 @@ static NTSTATUS linux_jack_get_sample_rate(void *args)
 }
 
 /*
+ * linux_process_callback
+ */
+
+struct callback_holder_t {
+    void* pe_callback;
+    void* arg;
+};
+
+static int linux_process_callback(jack_nframes_t nframes, void *arg)
+{
+    struct callback_holder_t* holder = (struct callback_holder_t*)arg;
+    struct pe_process_callback_params params = {
+        .dispatch = {.callback = pe_process_callback},
+        .pe_callback = (uint64_t)holder->pe_callback,
+        .nframes = nframes,
+        .arg = holder->arg,
+        .result = 0
+    };
+    struct dispatch_callback_params* dispatch = (struct dispatch_callback_params*) &params.dispatch;
+    void *ret_ptr = NULL;
+    ULONG ret_len = 0;
+    NTSTATUS status;
+
+    status = KeUserDispatchCallback(dispatch, sizeof(params), &ret_ptr, &ret_len);
+
+    if (status != 0 || ret_len != sizeof(int32_t)) {
+        return -1;
+    }
+
+    return *(int32_t *)ret_ptr;
+}
+
+/*
  * linux_jack_set_process_callback
  */
 static NTSTATUS linux_jack_set_process_callback(void *args)
 {
     struct jack_set_process_callback_params *params = args;
     jack_client_t *client = (jack_client_t*)params->client;
-   params->result = jack_set_process_callback(client, params->process_callback, params->arg);
 
+    static struct callback_holder_t callback_holder;
+    callback_holder.pe_callback = params->pe_process_callback;
+    callback_holder.arg = params->arg;
+
+    params->result = jack_set_process_callback(client, linux_process_callback, &callback_holder);
 
     return params->result == 0? _STATUS_SUCCESS : _STATUS_INVALID_PARAMETER;
 }
@@ -236,6 +288,8 @@ static NTSTATUS linux_jack_free(void *args)
  */
 const unixlib_entry_t __wine_unix_call_funcs[] =
 {
+    linux_process_attach,
+
     linux_jack_activate,
     linux_jack_client_close,
     linux_jack_client_open,
