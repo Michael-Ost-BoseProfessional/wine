@@ -26,7 +26,6 @@
 #include "winternl.h"
 #include "wine/debug.h"
 #include "wine/unixlib.h"
-#include "ntuser.h"
 // TODO: fix these includes
 #define _STATUS_SUCCESS             ((NTSTATUS) 0x00000000)
 #define _STATUS_INVALID_PARAMETER   ((NTSTATUS) 0xC000000D)
@@ -127,8 +126,8 @@ static NTSTATUS linux_jack_set_process_callback(void *args)
 {
     struct jack_set_process_callback_params *params = args;
     jack_client_t *client = (jack_client_t*)params->client;
-
    params->result = jack_set_process_callback(client, params->process_callback, params->arg);
+
 
     return params->result == 0? _STATUS_SUCCESS : _STATUS_INVALID_PARAMETER;
 }
@@ -237,8 +236,6 @@ static NTSTATUS linux_jack_free(void *args)
  */
 const unixlib_entry_t __wine_unix_call_funcs[] =
 {
-    linux_process_attach,
-
     linux_jack_activate,
     linux_jack_client_close,
     linux_jack_client_open,
