@@ -35,6 +35,7 @@
 #include <errno.h>
 #include <string.h>
 #include <jack/jack.h>
+#include <jack/thread.h>
 
 // verify the size of same-named winejack_unixlib.h types
 C_ASSERT(sizeof(jack_client_t*) == sizeof(wine_jack_client_t*));
@@ -51,6 +52,9 @@ C_ASSERT(sizeof(char*) == sizeof(uint64_t));
 WINE_DEFAULT_DEBUG_CHANNEL(winejack);
 
 static uint64_t pe_process_callback;
+static uint64_t pe_create_thread_callback;
+
+static int linux_create_thread_callback(pthread_t* id, const pthread_attr_t* attr, void* (*function)(void*), void* arg);
 
 /*
  * linux_process_attach
@@ -60,6 +64,10 @@ static NTSTATUS linux_process_attach(void *args)
     struct process_attach_params *params = args;
 
     pe_process_callback = params->pe_process_callback;
+    pe_create_thread_callback = params->pe_create_thread_callback;
+    jack_set_thread_creator(linux_create_thread_callback);
+
+    TRACE("pe_process_callback=%lx, pe_create_thread_callback=%lx\n", pe_process_callback, pe_create_thread_callback);
 
     return _STATUS_SUCCESS;
 }
@@ -135,17 +143,17 @@ static NTSTATUS linux_jack_get_sample_rate(void *args)
 }
 
 /*
- * linux_process_callback
+ * linux_jack_set_process_callback
  */
 
-struct callback_holder_t {
+struct process_callback_holder_t {
     void* pe_callback;
     void* arg;
 };
 
 static int linux_process_callback(jack_nframes_t nframes, void *arg)
 {
-    struct callback_holder_t* holder = (struct callback_holder_t*)arg;
+    struct process_callback_holder_t* holder = (struct process_callback_holder_t*)arg;
     struct pe_process_callback_params params = {
         .dispatch = {.callback = pe_process_callback},
         .pe_callback = (uint64_t)holder->pe_callback,
@@ -160,25 +168,20 @@ static int linux_process_callback(jack_nframes_t nframes, void *arg)
 
     status = KeUserDispatchCallback(dispatch, sizeof(params), &ret_ptr, &ret_len);
 
-    if (status != 0 || ret_len != sizeof(int32_t)) {
+    if (status != 0 || ret_len != sizeof(int32_t))
         return -1;
-    }
-
     return *(int32_t *)ret_ptr;
 }
 
-/*
- * linux_jack_set_process_callback
- */
 static NTSTATUS linux_jack_set_process_callback(void *args)
 {
     struct jack_set_process_callback_params *params = args;
     jack_client_t *client = (jack_client_t*)params->client;
 
-    static struct callback_holder_t callback_holder;
+    static struct process_callback_holder_t callback_holder;
     callback_holder.pe_callback = params->pe_process_callback;
     callback_holder.arg = params->arg;
-
+    
     params->result = jack_set_process_callback(client, linux_process_callback, &callback_holder);
 
     return params->result == 0? _STATUS_SUCCESS : _STATUS_INVALID_PARAMETER;
@@ -239,7 +242,7 @@ static NTSTATUS linux_jack_port_get_buffer(void *args)
     jack_port_t *port = (jack_port_t*)params->port;
 
     params->buffer = jack_port_get_buffer(port, params->nframes);
- 
+
     return params->buffer? _STATUS_SUCCESS : _STATUS_INVALID_PARAMETER;
 }
 
@@ -284,6 +287,98 @@ static NTSTATUS linux_jack_free(void *args)
 }
 
 /*
+ * linux_run_pthread
+ */
+ struct run_thread_synchronizer {
+    pthread_mutex_t mutex;
+    pthread_cond_t cond;
+    volatile int ready;
+    pthread_t id;
+};
+
+static NTSTATUS linux_run_pthread(void *args)
+{
+    struct run_pthread_params *params = args;
+    struct run_thread_synchronizer *sync = (struct run_thread_synchronizer*) params->synchronizer;
+    void* (*function)(void*) = (void* (*)(void*)) params->function;
+
+    pthread_mutex_lock(&sync->mutex);
+    sync->id = pthread_self();
+    sync->ready = 1;
+    pthread_cond_signal(&sync->cond);
+    pthread_mutex_unlock(&sync->mutex);
+
+    function((void*)params->arg);
+    
+    return _STATUS_SUCCESS;
+}
+
+/*
+ * linux_create_thread_callback
+ *
+ * Called by JACK when it wants a new thread. See Threads in README.md for an explanation.
+ */
+static int linux_create_thread_callback(pthread_t* id, const pthread_attr_t* attr, void* (*function)(void*), void* arg)
+{
+    struct run_thread_synchronizer sync;
+    struct pe_create_thread_callback_params params = {
+        .dispatch = {.callback = pe_create_thread_callback},
+        .synchronizer = (uint64_t) &sync,
+        .function = (uint64_t) function,
+        .arg = (uint64_t) arg,
+        .realtime = FALSE,
+    };
+    struct dispatch_callback_params* dispatch = (struct dispatch_callback_params*) &params.dispatch;
+    void *ret_ptr = NULL;
+    ULONG ret_len = 0;
+    NTSTATUS status;
+    int retval;
+
+    if (attr)
+    {
+        int policy = 0;
+        if (pthread_attr_getschedpolicy(attr, &policy) != 0) {
+            if (policy == SCHED_FIFO || policy == SCHED_RR)
+            params.realtime = TRUE;
+        }
+    }
+    // note: other attributes set in JACK for its new threads are ignored
+    //  - pthread_attr_setdetachstate(PTHREAD_CREATE_JOINABLE): windows threads are all joinable
+    //  - pthread_attr_setscope(PTHREAD_SCOPE_SYSTEM): true for all windows threads 
+    //  - pthread_attr_setinheritsched(PTHREAD_EXPLICIT_SCHED): we are setting priority explicitly
+    //  - pthread_attr_setstacksize(THREAD_STACK): can't see why this matters
+
+    pthread_mutex_init(&sync.mutex, NULL);
+    pthread_cond_init(&sync.cond, NULL);
+    sync.ready = 0;
+
+    TRACE("function=%lx, arg=%lx, realtime=%d - creating\n", params.function, params.arg, params.realtime);
+
+    // Create the thread on the PE side
+    status = KeUserDispatchCallback(dispatch, sizeof(params), &ret_ptr, &ret_len);
+
+    if (status == 0) {
+        // wait on linux_run_pthread which is called from the PE thread
+        pthread_mutex_lock(&sync.mutex);
+        while (!sync.ready)
+            pthread_cond_wait(&sync.cond, &sync.mutex);
+        pthread_mutex_unlock(&sync.mutex);
+
+        *id = sync.id;
+        retval = 0;
+    }
+    else
+        retval = -1;
+
+    pthread_mutex_destroy(&sync.mutex);
+    pthread_cond_destroy(&sync.cond);
+
+    TRACE("function=%lx, arg=%lx - created\n", params.function, params.arg);
+
+    return retval;
+}
+
+/*
  * Unixlib function table - must match enum wine_jack_func_ids order
  */
 const unixlib_entry_t __wine_unix_call_funcs[] =
@@ -304,7 +399,8 @@ const unixlib_entry_t __wine_unix_call_funcs[] =
     linux_jack_port_name,
     linux_jack_port_register,
 
-    linux_jack_free
+    linux_jack_free,
+    linux_run_pthread
 };
 
 C_ASSERT(ARRAYSIZE(__wine_unix_call_funcs) == wine_jack_funcs_count);

@@ -41,18 +41,25 @@ WINE_DEFAULT_DEBUG_CHANNEL(winejack);
 
 static BOOL sInitialized = FALSE;
 
+#define MAX_WINE_THREADS 50
+static HANDLE sThreadHandles[MAX_WINE_THREADS];
+static INT sThreadHandleCount = 0;
+
 static NTSTATUS WINAPI pe_process_callback(void *args, ULONG len);
+static NTSTATUS WINAPI pe_create_thread_callback(void *args, ULONG len);
 
 /***********************************************************************
  *           DllMain
  */
 BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, void *reserved)
 {
+    int i;
+
     switch (reason)
     {
     case DLL_PROCESS_ATTACH:
     {
-        struct process_attach_params params;
+        struct process_attach_params attachParams;
         NTSTATUS status;
 
         DisableThreadLibraryCalls(instance);
@@ -63,9 +70,10 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, void *reserved)
             return FALSE;
         }
 
-        // Pass a PE callback to the linux side that it will invoke
-        params.pe_process_callback = (uint64_t) pe_process_callback;
-        status = WINE_UNIX_CALL(process_attach_id, &params);
+        // Pass PE callbacks to the linux side that it will invoke
+        attachParams.pe_process_callback = (uint64_t) pe_process_callback;
+        attachParams.pe_create_thread_callback = (uint64_t) pe_create_thread_callback;
+        status = WINE_UNIX_CALL(process_attach_id, &attachParams);
         if (status) {
             ERR("Failed to register process callback: 0x%lx\n", status);
             return FALSE;
@@ -76,6 +84,14 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, void *reserved)
         break;
     }
     case DLL_PROCESS_DETACH:
+        for (i = 0; i < sThreadHandleCount; ++i) {
+            if (sThreadHandles[i]) {
+                CloseHandle(sThreadHandles[i]);
+                sThreadHandles[i] = 0;
+            }
+        }
+        sThreadHandleCount = 0;
+        TRACE("winejack unloaded\n");
         break;
     }
     return TRUE;
@@ -313,7 +329,7 @@ void* WINAPI jack_port_get_buffer(wine_jack_port_t* port, wine_jack_nframes_t nf
 
     if (!sInitialized) return 0;
 
-    nts = UNIX_CALL(jack_port_get_buffer_id, &params);
+    nts = WINE_UNIX_CALL(jack_port_get_buffer_id, &params);
 
     if (nts != _STATUS_SUCCESS)
         TRACE("unix call failed: 0x%lx\n", nts);
@@ -396,19 +412,84 @@ void WINAPI jack_free(void* ptr)
  */
 static NTSTATUS WINAPI pe_process_callback(void *args, ULONG len)
 {
-    typedef int (*JackProcessCallback)(wine_jack_nframes_t nframes, void *arg);
+    typedef int (*wine_jack_process_callback_t)(wine_jack_nframes_t nframes, void *arg);
 
     struct pe_process_callback_params *params = args;
-    JackProcessCallback pe_callback;
+    wine_jack_process_callback_t pe_callback;
     int32_t result;
 
     if (len < sizeof(*params) || !params->pe_callback)
         return _STATUS_INVALID_PARAMETER;
 
     // Execute the PE jack processing callback via Wine's KeUserDispatchCallback mechanism
-    pe_callback = (JackProcessCallback)params->pe_callback;
+    pe_callback = (wine_jack_process_callback_t)params->pe_callback;
     result = pe_callback(params->nframes, params->arg);
 
     // Return result to Unix side
     return NtCallbackReturn(&result, sizeof(result), _STATUS_SUCCESS);
+}
+
+/***********************************************************************
+ *           pe_create_thread_callback
+ * 
+ * See Threads in README.md for an explanation.
+ */
+
+struct thread_entry_args
+{
+    uint64_t synchronizer;
+    uint64_t function;
+    uint64_t arg;
+    BOOL realtime;
+};    
+
+DWORD WINAPI pe_thread_entry(LPVOID lpParam) 
+{
+    struct thread_entry_args* args = (struct thread_entry_args*) lpParam;
+    struct run_pthread_params params = {
+        .synchronizer = args->synchronizer,
+        .function = args->function,
+        .arg = args->arg
+    };
+
+    if (args->realtime) {
+        if (!SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS) ||
+            !SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL)) {
+            WARN("SetPriorityClass/SetThreadPriority failed. Audio may glitch");
+        }
+    }
+   
+    // Call back into linux to run the thread function, capture the pthread_t,
+    // and release the linux_create_thread_callback
+    WINE_UNIX_CALL(run_pthread_id, &params);
+    
+    TRACE("function=%llx, arg=%llx, realtime=%d => (none)\n", args->function, args->arg, args->realtime);
+
+    return 0;
+}
+
+static NTSTATUS WINAPI pe_create_thread_callback(void *args, ULONG len)
+ {
+    struct pe_create_thread_callback_params *params = args;
+    struct thread_entry_args entry_args = {
+        .synchronizer = params->synchronizer,
+        .function = params->function,
+        .arg = params->arg,
+        .realtime = params->realtime
+    };
+    HANDLE hThread;
+
+    if (sThreadHandleCount == MAX_WINE_THREADS)
+        return _STATUS_INVALID_PARAMETER;
+
+    hThread = CreateThread(NULL, 0, pe_thread_entry, &entry_args, 0, NULL);
+    if (!hThread)
+        return _STATUS_INVALID_PARAMETER;
+
+    sThreadHandles[sThreadHandleCount++] = hThread;
+
+    TRACE("function=%llx, arg=%llx, realtime=%d => hThread=%p\n", params->function,
+        params->arg, params->realtime, hThread);
+
+    return _STATUS_SUCCESS;
 }
