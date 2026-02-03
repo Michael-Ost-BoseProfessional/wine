@@ -37,6 +37,7 @@ typedef uint32_t wine_jack_nframes_t;
 struct process_attach_params
 {
     uint64_t pe_process_callback;
+    uint64_t pe_create_thread_callback;
 };
 
 struct jack_activate_params
@@ -157,13 +158,22 @@ struct jack_free_params
     void* ptr;
 };
 
-/* Linux to PE wrapper for the JACK process callback */
+struct run_pthread_params
+{
+    /* see pe_create_thread_callback_params */
+    uint64_t synchronizer;
+    uint64_t function;
+    uint64_t arg;
+};
+
+// See ntuser.h (which is difficult to include here)
+struct _dispatch_callback_params {
+    uint64_t callback;
+};
+
 struct pe_process_callback_params
 {
-    // See ntuser.h (which is difficult to include here)
-    struct _dispatch_callback_params {
-        uint64_t callback;
-    } dispatch;
+    struct _dispatch_callback_params dispatch;
 
     uint64_t pe_callback;
     wine_jack_nframes_t nframes;
@@ -171,6 +181,17 @@ struct pe_process_callback_params
 
     /* output */
     int32_t result;
+};
+
+struct pe_create_thread_callback_params
+{
+    struct _dispatch_callback_params dispatch;
+
+    uint64_t synchronizer;  /* communicate between callbacks */
+    uint64_t function;      /* pthread style thread function */
+    uint64_t arg;           /* opaque argument to 'function' */
+
+    int realtime;
 };
 
 /* Function enumeration - must match __wine_unix_call_funcs order */
@@ -193,6 +214,7 @@ enum wine_jack_func_ids
     jack_port_register_id,
 
     jack_free_id,
+    run_pthread_id,
 
     wine_jack_funcs_count
 };
