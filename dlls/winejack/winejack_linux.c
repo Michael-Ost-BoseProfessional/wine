@@ -53,6 +53,7 @@ WINE_DEFAULT_DEBUG_CHANNEL(winejack);
 
 static uint64_t pe_process_callback;
 static uint64_t pe_create_thread_callback;
+static uint64_t pe_shutdown_callback;
 
 static int linux_create_thread_callback(pthread_t* id, const pthread_attr_t* attr, void* (*function)(void*), void* arg);
 
@@ -66,8 +67,9 @@ static NTSTATUS linux_process_attach(void *args)
     pe_process_callback = params->pe_process_callback;
     pe_create_thread_callback = params->pe_create_thread_callback;
     jack_set_thread_creator(linux_create_thread_callback);
+    pe_shutdown_callback = params->pe_shutdown_callback;
 
-    TRACE("pe_process_callback=%lx, pe_create_thread_callback=%lx\n", pe_process_callback, pe_create_thread_callback);
+    TRACE("pe_process_callback=%lx, pe_create_thread_callback=%lx, pe_shutdown_callback=%lx\n", pe_process_callback, pe_create_thread_callback, pe_shutdown_callback);
 
     return _STATUS_SUCCESS;
 }
@@ -190,12 +192,41 @@ static NTSTATUS linux_jack_set_process_callback(void *args)
 /*
  * linux_jack_on_shutdown
  */
+struct shutdown_callback_holder_t {
+    void* pe_callback;
+    void* arg;
+};
+
+static NTSTATUS linux_on_shutdown_callback(void *arg)
+{
+    struct shutdown_callback_holder_t* holder = (struct shutdown_callback_holder_t*) arg;
+    struct pe_shutdown_callback_params params = {
+        .dispatch = {.callback = pe_shutdown_callback},
+        .pe_callback = (uint64_t)holder->pe_callback,
+        .arg = holder->arg
+    };
+    struct dispatch_callback_params* dispatch = (struct dispatch_callback_params*) &params.dispatch;
+    void *ret_ptr = NULL;
+    ULONG ret_len = 0;
+    NTSTATUS status;
+
+    status = KeUserDispatchCallback(dispatch, sizeof(params), &ret_ptr, &ret_len);
+
+    if (status != 0 || ret_len != sizeof(int32_t))
+        return -1;
+    return *(int32_t *)ret_ptr;
+}
+
 static NTSTATUS linux_jack_on_shutdown(void *args)
 {
     struct jack_on_shutdown_params* params = args;
     jack_client_t *client = (jack_client_t*)params->client;
 
-    jack_on_shutdown(client, params->shutdown_callback, params->arg);
+    static struct process_callback_holder_t callback_holder;
+    callback_holder.pe_callback = params->pe_shutdown_callback;
+    callback_holder.arg = params->arg;
+
+    jack_on_shutdown(client, linux_on_shutdown_callback, (void*) &callback_holder);
 
     return _STATUS_SUCCESS;
 }

@@ -38,6 +38,7 @@ struct process_attach_params
 {
     uint64_t pe_process_callback;
     uint64_t pe_create_thread_callback;
+    uint64_t pe_shutdown_callback;
 };
 
 struct jack_activate_params
@@ -98,7 +99,7 @@ struct jack_set_process_callback_params
 struct jack_on_shutdown_params
 {
     wine_jack_client_t* client;
-    void* shutdown_callback;
+    void* pe_shutdown_callback;
     void* arg;
 
     /* outputs */
@@ -192,6 +193,14 @@ struct pe_create_thread_callback_params
     uint64_t arg;           /* opaque argument to 'function' */
 
     int realtime;
+};
+
+struct pe_shutdown_callback_params
+{
+    struct _dispatch_callback_params dispatch;
+
+    uint64_t pe_callback;
+    void* arg;
 };
 
 /* Function enumeration - must match __wine_unix_call_funcs order */

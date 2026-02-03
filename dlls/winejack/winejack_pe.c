@@ -47,6 +47,7 @@ static INT sThreadHandleCount = 0;
 
 static NTSTATUS WINAPI pe_process_callback(void *args, ULONG len);
 static NTSTATUS WINAPI pe_create_thread_callback(void *args, ULONG len);
+static NTSTATUS WINAPI pe_shutdown_callback(void *args, ULONG len);
 
 /***********************************************************************
  *           DllMain
@@ -73,6 +74,7 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, void *reserved)
         // Pass PE callbacks to the linux side that it will invoke
         attachParams.pe_process_callback = (uint64_t) pe_process_callback;
         attachParams.pe_create_thread_callback = (uint64_t) pe_create_thread_callback;
+        attachParams.pe_shutdown_callback = (uint64_t) pe_shutdown_callback;
         status = WINE_UNIX_CALL(process_attach_id, &attachParams);
         if (status) {
             ERR("Failed to register process callback: 0x%lx\n", status);
@@ -252,7 +254,7 @@ void WINAPI jack_on_shutdown(wine_jack_client_t* client, void* shutdown_callback
 {
     struct jack_on_shutdown_params params = {
         .client = client,
-        .shutdown_callback = shutdown_callback,
+        .pe_shutdown_callback = shutdown_callback,
         .arg = arg
     };
     NTSTATUS nts;
@@ -490,6 +492,26 @@ static NTSTATUS WINAPI pe_create_thread_callback(void *args, ULONG len)
 
     TRACE("function=%llx, arg=%llx, realtime=%d => hThread=%p\n", params->function,
         params->arg, params->realtime, hThread);
+
+    return _STATUS_SUCCESS;
+}
+
+/***********************************************************************
+ *           pe_shutdown_callback
+ *
+ */
+static NTSTATUS WINAPI pe_shutdown_callback(void *args, ULONG len)
+{
+    typedef void (*wine_jack_shutdown_callback_t)(void *arg);
+
+    struct pe_shutdown_callback_params *params = args;
+    wine_jack_shutdown_callback_t pe_callback;
+
+    if (len < sizeof(*params) || !params->pe_callback)
+        return _STATUS_INVALID_PARAMETER;
+
+    pe_callback = (wine_jack_shutdown_callback_t) params->pe_callback;
+    pe_callback(params->arg);
 
     return _STATUS_SUCCESS;
 }
