@@ -75,6 +75,8 @@ enum JackPortFlags {
 typedef uint32_t jack_nframes_t;
 typedef float jack_default_audio_sample_t;
 typedef int (*JackProcessCallback)(jack_nframes_t nframes, void *arg);
+typedef int (*JackSampleRateCallback)(jack_nframes_t nframes, void *arg);
+typedef int (*JackBufferSizeCallback)(jack_nframes_t nframes, void *arg);
 typedef void (*JackShutdownCallback)(void *arg);
 
 #define JACK_DEFAULT_AUDIO_TYPE "32 bit float mono audio"
@@ -84,12 +86,15 @@ typedef void (*JackShutdownCallback)(void *arg);
  */
 int             jack_activate (jack_client_t* client);
 int             jack_client_close(jack_client_t* client);
+int             jack_deactivate (jack_client_t* client);
 jack_client_t*  jack_client_open(const char* client_name, jack_options_t options, jack_status_t* status);
 const char**    jack_get_ports(jack_client_t* client, const char *port_name_pattern,
                             const char *type_name_pattern, uint64_t flags);
 jack_nframes_t  jack_get_sample_rate (jack_client_t* client);
-int             jack_set_process_callback(jack_client_t* client, JackProcessCallback process_callback, void* arg);
-void            jack_on_shutdown(jack_client_t* client, JackShutdownCallback shutdown_callback, void* arg);
+void            jack_on_shutdown(jack_client_t* client, JackShutdownCallback callback, void* arg);
+int             jack_set_buffer_size_callback(jack_client_t* client, JackBufferSizeCallback callback, void* arg);
+int             jack_set_process_callback(jack_client_t* client, JackProcessCallback callback, void* arg);
+int             jack_set_sample_rate_callback(jack_client_t* client, JackSampleRateCallback callback, void* arg);
 
 /*
  * JACK port interface - see jack.h

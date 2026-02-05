@@ -51,9 +51,16 @@ C_ASSERT(sizeof(char*) == sizeof(uint64_t));
 
 WINE_DEFAULT_DEBUG_CHANNEL(winejack);
 
-static uint64_t pe_process_callback;
+static uint64_t pe_buffer_size_callback;
 static uint64_t pe_create_thread_callback;
+static uint64_t pe_process_callback;
+static uint64_t pe_sample_rate_callback;
 static uint64_t pe_shutdown_callback;
+
+struct callback_holder_t {
+    void* pe_callback;
+    void* arg;
+};
 
 static int linux_create_thread_callback(pthread_t* id, const pthread_attr_t* attr, void* (*function)(void*), void* arg);
 
@@ -64,10 +71,13 @@ static NTSTATUS linux_process_attach(void *args)
 {
     struct process_attach_params *params = args;
 
+    pe_buffer_size_callback = params->pe_buffer_size_callback;
     pe_process_callback = params->pe_process_callback;
+    pe_sample_rate_callback = params->pe_sample_rate_callback;
+    pe_shutdown_callback = params->pe_shutdown_callback;
+
     pe_create_thread_callback = params->pe_create_thread_callback;
     jack_set_thread_creator(linux_create_thread_callback);
-    pe_shutdown_callback = params->pe_shutdown_callback;
 
     TRACE("pe_process_callback=%lx, pe_create_thread_callback=%lx, pe_shutdown_callback=%lx\n", pe_process_callback, pe_create_thread_callback, pe_shutdown_callback);
 
@@ -118,6 +128,19 @@ static NTSTATUS linux_jack_client_open(void* args)
 }        
 
 /*
+ * linux_jack_deactivate
+ */
+static NTSTATUS linux_jack_deactivate(void* args)
+{
+    struct jack_deactivate_params* params = args;
+    jack_client_t* client = (jack_client_t*)params->client;
+
+    params->result = jack_deactivate(client);
+
+    return params->result == 0? _STATUS_SUCCESS : _STATUS_INVALID_PARAMETER;
+}
+
+/*
  * linux_jack_get_ports
  */
 static NTSTATUS linux_jack_get_ports(void *args)
@@ -145,17 +168,82 @@ static NTSTATUS linux_jack_get_sample_rate(void *args)
 }
 
 /*
+ * linux_jack_on_shutdown
+ */
+static void linux_on_shutdown_callback(void *arg)
+{
+    struct callback_holder_t* holder = (struct callback_holder_t*) arg;
+    struct pe_shutdown_callback_params params = {
+        .dispatch = {.callback = pe_shutdown_callback},
+        .pe_callback = (uint64_t)holder->pe_callback,
+        .arg = holder->arg
+    };
+    struct dispatch_callback_params* dispatch = (struct dispatch_callback_params*) &params.dispatch;
+    void *ret_ptr = NULL;
+    ULONG ret_len = 0;
+
+    KeUserDispatchCallback(dispatch, sizeof(params), &ret_ptr, &ret_len);
+}
+
+static NTSTATUS linux_jack_on_shutdown(void *args)
+{
+    struct jack_on_shutdown_params* params = args;
+    jack_client_t *client = (jack_client_t*)params->client;
+
+    static struct callback_holder_t callback_holder;
+    callback_holder.pe_callback = params->pe_callback;
+    callback_holder.arg = params->arg;
+
+    jack_on_shutdown(client, linux_on_shutdown_callback, (void*) &callback_holder);
+
+    return _STATUS_SUCCESS;
+}
+
+/*
+ * linux_jack_set_buffer_size_callback
+ */
+static int linux_buffer_size_callback(jack_nframes_t nframes, void *arg)
+{
+    struct callback_holder_t* holder = (struct callback_holder_t*)arg;
+    struct pe_process_callback_params params = {
+        .dispatch = {.callback = pe_buffer_size_callback},
+        .pe_callback = (uint64_t)holder->pe_callback,
+        .nframes = nframes,
+        .arg = holder->arg,
+        .result = 0
+    };
+    struct dispatch_callback_params* dispatch = (struct dispatch_callback_params*) &params.dispatch;
+    void *ret_ptr = NULL;
+    ULONG ret_len = 0;
+    NTSTATUS status;
+
+    status = KeUserDispatchCallback(dispatch, sizeof(params), &ret_ptr, &ret_len);
+
+    if (status != 0 || ret_len != sizeof(int32_t))
+        return -1;
+    return *(int32_t *)ret_ptr;
+}
+
+static NTSTATUS linux_jack_set_buffer_size_callback(void *args)
+{
+    struct jack_set_buffer_size_callback_params *params = args;
+    jack_client_t *client = (jack_client_t*)params->client;
+
+    static struct callback_holder_t callback_holder;
+    callback_holder.pe_callback = params->pe_callback;
+    callback_holder.arg = params->arg;
+    
+    params->result = jack_set_buffer_size_callback(client, linux_buffer_size_callback, &callback_holder);
+
+    return params->result == 0? _STATUS_SUCCESS : _STATUS_INVALID_PARAMETER;
+}
+
+/*
  * linux_jack_set_process_callback
  */
-
-struct process_callback_holder_t {
-    void* pe_callback;
-    void* arg;
-};
-
 static int linux_process_callback(jack_nframes_t nframes, void *arg)
 {
-    struct process_callback_holder_t* holder = (struct process_callback_holder_t*)arg;
+    struct callback_holder_t* holder = (struct callback_holder_t*)arg;
     struct pe_process_callback_params params = {
         .dispatch = {.callback = pe_process_callback},
         .pe_callback = (uint64_t)holder->pe_callback,
@@ -180,8 +268,8 @@ static NTSTATUS linux_jack_set_process_callback(void *args)
     struct jack_set_process_callback_params *params = args;
     jack_client_t *client = (jack_client_t*)params->client;
 
-    static struct process_callback_holder_t callback_holder;
-    callback_holder.pe_callback = params->pe_process_callback;
+    static struct callback_holder_t callback_holder;
+    callback_holder.pe_callback = params->pe_callback;
     callback_holder.arg = params->arg;
     
     params->result = jack_set_process_callback(client, linux_process_callback, &callback_holder);
@@ -190,20 +278,17 @@ static NTSTATUS linux_jack_set_process_callback(void *args)
 }
 
 /*
- * linux_jack_on_shutdown
+ * linux_jack_set_sample_rate_callback
  */
-struct shutdown_callback_holder_t {
-    void* pe_callback;
-    void* arg;
-};
-
-static NTSTATUS linux_on_shutdown_callback(void *arg)
+static int linux_sample_rate_callback(jack_nframes_t nframes, void *arg)
 {
-    struct shutdown_callback_holder_t* holder = (struct shutdown_callback_holder_t*) arg;
-    struct pe_shutdown_callback_params params = {
-        .dispatch = {.callback = pe_shutdown_callback},
+    struct callback_holder_t* holder = (struct callback_holder_t*)arg;
+    struct pe_process_callback_params params = {
+        .dispatch = {.callback = pe_sample_rate_callback},
         .pe_callback = (uint64_t)holder->pe_callback,
-        .arg = holder->arg
+        .nframes = nframes,
+        .arg = holder->arg,
+        .result = 0
     };
     struct dispatch_callback_params* dispatch = (struct dispatch_callback_params*) &params.dispatch;
     void *ret_ptr = NULL;
@@ -217,18 +302,18 @@ static NTSTATUS linux_on_shutdown_callback(void *arg)
     return *(int32_t *)ret_ptr;
 }
 
-static NTSTATUS linux_jack_on_shutdown(void *args)
+static NTSTATUS linux_jack_set_sample_rate_callback(void *args)
 {
-    struct jack_on_shutdown_params* params = args;
+    struct jack_set_sample_rate_callback_params *params = args;
     jack_client_t *client = (jack_client_t*)params->client;
 
-    static struct process_callback_holder_t callback_holder;
-    callback_holder.pe_callback = params->pe_shutdown_callback;
+    static struct callback_holder_t callback_holder;
+    callback_holder.pe_callback = params->pe_callback;
     callback_holder.arg = params->arg;
+    
+    params->result = jack_set_sample_rate_callback(client, linux_sample_rate_callback, &callback_holder);
 
-    jack_on_shutdown(client, linux_on_shutdown_callback, (void*) &callback_holder);
-
-    return _STATUS_SUCCESS;
+    return params->result == 0? _STATUS_SUCCESS : _STATUS_INVALID_PARAMETER;
 }
 
 /*
@@ -419,10 +504,13 @@ const unixlib_entry_t __wine_unix_call_funcs[] =
     linux_jack_activate,
     linux_jack_client_close,
     linux_jack_client_open,
+    linux_jack_deactivate,
     linux_jack_get_ports,
     linux_jack_get_sample_rate,
-    linux_jack_set_process_callback,
     linux_jack_on_shutdown,
+    linux_jack_set_buffer_size_callback,
+    linux_jack_set_process_callback,
+    linux_jack_set_sample_rate_callback,
 
     linux_jack_connect,
     linux_jack_disconnect,
