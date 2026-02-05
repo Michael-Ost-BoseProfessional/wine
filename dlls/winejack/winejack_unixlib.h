@@ -36,8 +36,10 @@ typedef uint32_t wine_jack_nframes_t;
 
 struct process_attach_params
 {
-    uint64_t pe_process_callback;
+    uint64_t pe_buffer_size_callback;
     uint64_t pe_create_thread_callback;
+    uint64_t pe_process_callback;
+    uint64_t pe_sample_rate_callback;
     uint64_t pe_shutdown_callback;
 };
 
@@ -56,6 +58,14 @@ struct jack_client_close_params
     /* outputs */
     int32_t result;
 };    
+
+struct jack_deactivate_params
+{
+    wine_jack_client_t* client;
+
+    /* outputs */
+    int32_t result;
+};
 
 struct jack_client_open_params
 {
@@ -86,23 +96,43 @@ struct jack_get_sample_rate_params
     wine_jack_nframes_t sample_rate;
 };
 
-struct jack_set_process_callback_params
+struct jack_on_shutdown_params
 {
     wine_jack_client_t* client;
-    void* pe_process_callback;
+    void* pe_callback;
+    void* arg;
+
+    /* outputs */
+};
+
+struct jack_set_buffer_size_callback_params
+{
+    wine_jack_client_t* client;
+    void* pe_callback;
     void* arg;
 
     /* outputs */
     int result;
 };
 
-struct jack_on_shutdown_params
+struct jack_set_process_callback_params
 {
     wine_jack_client_t* client;
-    void* pe_shutdown_callback;
+    void* pe_callback;
     void* arg;
 
     /* outputs */
+    int result;
+};
+
+struct jack_set_sample_rate_callback_params
+{
+    wine_jack_client_t* client;
+    void* pe_callback;
+    void* arg;
+
+    /* outputs */
+    int result;
 };
 
 struct jack_connect_params
@@ -172,7 +202,7 @@ struct _dispatch_callback_params {
     uint64_t callback;
 };
 
-struct pe_process_callback_params
+struct pe_buffer_size_callback_params
 {
     struct _dispatch_callback_params dispatch;
 
@@ -195,6 +225,30 @@ struct pe_create_thread_callback_params
     int realtime;
 };
 
+struct pe_process_callback_params
+{
+    struct _dispatch_callback_params dispatch;
+
+    uint64_t pe_callback;
+    wine_jack_nframes_t nframes;
+    void* arg;
+
+    /* output */
+    int32_t result;
+};
+
+struct pe_sample_rate_callback_params
+{
+    struct _dispatch_callback_params dispatch;
+
+    uint64_t pe_callback;
+    wine_jack_nframes_t nframes;
+    void* arg;
+
+    /* output */
+    int32_t result;
+};
+
 struct pe_shutdown_callback_params
 {
     struct _dispatch_callback_params dispatch;
@@ -211,10 +265,13 @@ enum wine_jack_func_ids
     jack_activate_id,
     jack_client_close_id,
     jack_client_open_id,
+    jack_deactivate_id,
     jack_get_ports_id,
     jack_get_sample_rate_id,
-    jack_set_process_callback_id,
     jack_on_shutdown_id,
+    jack_set_buffer_size_callback_id,
+    jack_set_process_callback_id,
+    jack_set_sample_rate_callback_id,
 
     jack_connect_id,
     jack_disconnect_id,
