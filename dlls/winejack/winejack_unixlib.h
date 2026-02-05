@@ -202,18 +202,6 @@ struct _dispatch_callback_params {
     uint64_t callback;
 };
 
-struct pe_buffer_size_callback_params
-{
-    struct _dispatch_callback_params dispatch;
-
-    uint64_t pe_callback;
-    wine_jack_nframes_t nframes;
-    void* arg;
-
-    /* output */
-    int32_t result;
-};
-
 struct pe_create_thread_callback_params
 {
     struct _dispatch_callback_params dispatch;
@@ -225,19 +213,8 @@ struct pe_create_thread_callback_params
     int realtime;
 };
 
-struct pe_process_callback_params
-{
-    struct _dispatch_callback_params dispatch;
-
-    uint64_t pe_callback;
-    wine_jack_nframes_t nframes;
-    void* arg;
-
-    /* output */
-    int32_t result;
-};
-
-struct pe_sample_rate_callback_params
+/* params for process, sample_rate, and buffer_size callbacks */
+struct pe_callback_nframes_arg_params
 {
     struct _dispatch_callback_params dispatch;
 
