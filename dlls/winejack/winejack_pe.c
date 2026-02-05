@@ -281,8 +281,15 @@ int WINAPI jack_set_buffer_size_callback(wine_jack_client_t* client, void* callb
         .result = -1
     };
     NTSTATUS nts;
+    static wine_jack_client_t* s_client;
 
     if (!sInitialized || !client) return 0;
+
+    if (s_client && s_client != client) {
+        FIXME("TODO: add support for jack_set_buffer_size_callback with multiple clients ");
+        return -1;
+    }
+    s_client = client;
 
     nts = WINE_UNIX_CALL(jack_set_buffer_size_callback_id, &params);
 
@@ -306,8 +313,15 @@ int WINAPI jack_set_process_callback(wine_jack_client_t* client, void* callback,
         .result = -1
     };
     NTSTATUS nts;
+    static wine_jack_client_t* s_client;
 
     if (!sInitialized || !client) return 0;
+
+    if (s_client && s_client != client) {
+        FIXME("TODO: add support for jack_set_process_callback with multiple clients ");
+        return -1;
+    }
+    s_client = client;
 
     nts = WINE_UNIX_CALL(jack_set_process_callback_id, &params);
 
@@ -331,8 +345,15 @@ int WINAPI jack_set_sample_rate_callback(wine_jack_client_t* client, void* callb
         .result = -1
     };
     NTSTATUS nts;
+    static wine_jack_client_t* s_client;
 
     if (!sInitialized || !client) return 0;
+
+    if (s_client && s_client != client) {
+        FIXME("TODO: add support for jack_set_sample_rate_callback with multiple clients ");
+        return -1;
+    }
+    s_client = client;
 
     nts = WINE_UNIX_CALL(jack_set_sample_rate_callback_id, &params);
 
@@ -485,28 +506,6 @@ void WINAPI jack_free(void* ptr)
 }
 
 /***********************************************************************
- *           pe_buffer_size_callback
- *
- */
-static NTSTATUS WINAPI pe_buffer_size_callback(void *args, ULONG len)
-{
-    typedef int (*wine_jack_buffer_size_callback_t)(wine_jack_nframes_t nframes, void *arg);
-
-    struct pe_buffer_size_callback_params *params = args;
-    wine_jack_buffer_size_callback_t pe_callback;
-    int32_t result;
-
-    if (len < sizeof(*params) || !params->pe_callback)
-        return _STATUS_INVALID_PARAMETER;
-
-    pe_callback = (wine_jack_buffer_size_callback_t) params->pe_callback;
-    result = pe_callback(params->nframes, params->arg);
-
-    // Return result to Unix side
-    return NtCallbackReturn(&result, sizeof(result), _STATUS_SUCCESS);
-}
-
-/***********************************************************************
  *           pe_create_thread_callback
  * 
  * See Threads in README.md for an explanation.
@@ -572,26 +571,46 @@ static NTSTATUS WINAPI pe_create_thread_callback(void *args, ULONG len)
 }
 
 /***********************************************************************
- *           pe_process_callback
+ *           pe_callback_nframes_arg
  *
+ * Shared function for pe_process_callback, pe_sample_rate_callback, and 
+ * pe_buffer_size_callback which all share the same signature.
  */
-static NTSTATUS WINAPI pe_process_callback(void *args, ULONG len)
+static NTSTATUS WINAPI pe_callback_nframes_arg(void *args, ULONG len)
 {
-    typedef int (*wine_jack_process_callback_t)(wine_jack_nframes_t nframes, void *arg);
+    typedef int (*callback_nframes_arg_t)(wine_jack_nframes_t nframes, void *arg);
 
-    struct pe_process_callback_params *params = args;
-    wine_jack_process_callback_t pe_callback;
+    struct pe_callback_nframes_arg_params *params = args;
+    callback_nframes_arg_t pe_callback;
     int32_t result;
 
     if (len < sizeof(*params) || !params->pe_callback)
         return _STATUS_INVALID_PARAMETER;
 
-    // Execute the PE jack processing callback via Wine's KeUserDispatchCallback mechanism
-    pe_callback = (wine_jack_process_callback_t)params->pe_callback;
+    // Respond to call from KeUserDispatchCallback on the linux side
+    pe_callback = (callback_nframes_arg_t) params->pe_callback;
     result = pe_callback(params->nframes, params->arg);
 
-    // Return result to Unix side
+    // Return result to linux side
     return NtCallbackReturn(&result, sizeof(result), _STATUS_SUCCESS);
+}
+
+/***********************************************************************
+ *           pe_buffer_size_callback
+ *
+ */
+static NTSTATUS WINAPI pe_buffer_size_callback(void *args, ULONG len)
+{
+    return pe_callback_nframes_arg(args, len);
+}
+
+/***********************************************************************
+ *           pe_process_callback
+ *
+ */
+static NTSTATUS WINAPI pe_process_callback(void *args, ULONG len)
+{
+    return pe_callback_nframes_arg(args, len);
 }
 
 /***********************************************************************
@@ -600,20 +619,7 @@ static NTSTATUS WINAPI pe_process_callback(void *args, ULONG len)
  */
 static NTSTATUS WINAPI pe_sample_rate_callback(void *args, ULONG len)
 {
-    typedef int (*wine_jack_sample_rate_callback_t)(wine_jack_nframes_t nframes, void *arg);
-
-    struct pe_sample_rate_callback_params *params = args;
-    wine_jack_sample_rate_callback_t pe_callback;
-    int32_t result;
-
-    if (len < sizeof(*params) || !params->pe_callback)
-        return _STATUS_INVALID_PARAMETER;
-
-    pe_callback = (wine_jack_sample_rate_callback_t) params->pe_callback;
-    result = pe_callback(params->nframes, params->arg);
-
-    // Return result to Unix side
-    return NtCallbackReturn(&result, sizeof(result), _STATUS_SUCCESS);
+    return pe_callback_nframes_arg(args, len);
 }
 
 /***********************************************************************
