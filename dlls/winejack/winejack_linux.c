@@ -293,6 +293,19 @@ static NTSTATUS linux_jack_set_sample_rate_callback(void *args)
 }
 
 /*
+ * linux_jack_last_frame_time
+ */
+static NTSTATUS linux_jack_last_frame_time(void *args)
+{
+    struct jack_last_frame_time_params *params = args;
+    jack_client_t *client = (jack_client_t*)params->client;
+
+    params->nframes = jack_last_frame_time(client);
+
+    return _STATUS_SUCCESS;
+}
+
+/*
  * linux_jack_connect
  */
 static NTSTATUS linux_jack_connect(void *args)
@@ -487,6 +500,7 @@ const unixlib_entry_t __wine_unix_call_funcs[] =
     linux_jack_set_buffer_size_callback,
     linux_jack_set_process_callback,
     linux_jack_set_sample_rate_callback,
+    linux_jack_last_frame_time,
 
     linux_jack_connect,
     linux_jack_disconnect,

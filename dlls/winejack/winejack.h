@@ -95,6 +95,7 @@ void            jack_on_shutdown(jack_client_t* client, JackShutdownCallback cal
 int             jack_set_buffer_size_callback(jack_client_t* client, JackBufferSizeCallback callback, void* arg);
 int             jack_set_process_callback(jack_client_t* client, JackProcessCallback callback, void* arg);
 int             jack_set_sample_rate_callback(jack_client_t* client, JackSampleRateCallback callback, void* arg);
+jack_nframes_t  jack_last_frame_time(const jack_client_t* client);
 
 /*
  * JACK port interface - see jack.h

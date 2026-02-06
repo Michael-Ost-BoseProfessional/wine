@@ -10,6 +10,7 @@
 @ stdcall jack_set_buffer_size_callback(int64 ptr ptr)
 @ stdcall jack_set_process_callback(int64 ptr ptr)
 @ stdcall jack_set_sample_rate_callback(int64 ptr ptr)
+@ stdcall jack_last_frame_time(int64)
 
 @ stdcall jack_connect(int64 str str)
 @ stdcall jack_disconnect(int64 str str)
