@@ -135,6 +135,14 @@ struct jack_set_sample_rate_callback_params
     int result;
 };
 
+struct jack_last_frame_time_params
+{
+    wine_jack_client_t* client;
+
+    /* outputs */
+    wine_jack_nframes_t nframes;
+};
+
 struct jack_connect_params
 {
     wine_jack_client_t* client;
@@ -249,6 +257,7 @@ enum wine_jack_func_ids
     jack_set_buffer_size_callback_id,
     jack_set_process_callback_id,
     jack_set_sample_rate_callback_id,
+    jack_last_frame_time_id,
 
     jack_connect_id,
     jack_disconnect_id,

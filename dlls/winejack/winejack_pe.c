@@ -366,6 +366,27 @@ int WINAPI jack_set_sample_rate_callback(wine_jack_client_t* client, void* callb
 }
 
 /***********************************************************************
+ *           jack_last_frame_time
+ */
+wine_jack_nframes_t WINAPI jack_last_frame_time(wine_jack_client_t* client)
+{
+    struct jack_last_frame_time_params params = {
+        .client = client,
+        .nframes = 0
+    };
+    NTSTATUS nts;
+
+    if (!sInitialized || !client) return 0;
+
+    nts = WINE_UNIX_CALL(jack_last_frame_time_id, &params);
+
+    if (nts != _STATUS_SUCCESS)
+        ERR("unix call failed: 0x%lx\n", nts);
+
+    return params.nframes;
+}
+
+/***********************************************************************
  *           jack_connect
  */
 int WINAPI jack_connect(wine_jack_client_t* client, const char* source_port, const char* destination_port)
