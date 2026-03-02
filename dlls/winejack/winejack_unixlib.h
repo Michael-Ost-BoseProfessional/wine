@@ -59,14 +59,6 @@ struct jack_client_close_params
     int32_t result;
 };    
 
-struct jack_deactivate_params
-{
-    wine_jack_client_t* client;
-
-    /* outputs */
-    int32_t result;
-};
-
 struct jack_client_open_params
 {
     const char* client_name;
@@ -76,6 +68,22 @@ struct jack_client_open_params
     wine_jack_status_t status;
     wine_jack_client_t* client;
 };        
+
+struct jack_deactivate_params
+{
+    wine_jack_client_t* client;
+
+    /* outputs */
+    int32_t result;
+};
+
+struct jack_get_client_name_params
+{
+    wine_jack_client_t* client;
+    
+    /* outputs */
+    char* client_name;
+};
 
 struct jack_get_ports_params
 {
@@ -251,6 +259,7 @@ enum wine_jack_func_ids
     jack_client_close_id,
     jack_client_open_id,
     jack_deactivate_id,
+    jack_get_client_name_id,
     jack_get_ports_id,
     jack_get_sample_rate_id,
     jack_on_shutdown_id,

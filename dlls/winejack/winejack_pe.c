@@ -201,6 +201,32 @@ int32_t WINAPI jack_deactivate(wine_jack_client_t* client)
 }
 
 /***********************************************************************
+ *           jack_get_client_name
+ */ 
+char* WINAPI jack_get_client_name(wine_jack_client_t* client)
+{
+    struct jack_get_client_name_params params = {
+        .client = client,
+        .client_name = 0
+    };    
+    NTSTATUS nts;
+    
+    if (!sInitialized)
+    {
+        ERR("winejack not initialized\n");
+        return 0;
+    }    
+    
+    nts = WINE_UNIX_CALL(jack_get_client_name_id, &params);
+    
+    TRACE("client=%p => client_name=%s\n", params.client, params.client_name);
+    if (nts != _STATUS_SUCCESS)
+        ERR("unix call failed: 0x%lx\n", nts);
+    
+    return params.client_name;
+}    
+
+/***********************************************************************
  *           jack_get_ports
  */
 const char** WINAPI jack_get_ports(wine_jack_client_t* client, const char* port_name_pattern,
