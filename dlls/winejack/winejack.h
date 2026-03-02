@@ -88,6 +88,7 @@ int             jack_activate (jack_client_t* client);
 int             jack_client_close(jack_client_t* client);
 int             jack_deactivate (jack_client_t* client);
 jack_client_t*  jack_client_open(const char* client_name, jack_options_t options, jack_status_t* status);
+char*           jack_client_name(jack_client_t* client);
 const char**    jack_get_ports(jack_client_t* client, const char *port_name_pattern,
                             const char *type_name_pattern, uint64_t flags);
 jack_nframes_t  jack_get_sample_rate (jack_client_t* client);

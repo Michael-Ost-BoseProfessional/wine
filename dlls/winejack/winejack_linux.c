@@ -141,6 +141,19 @@ static NTSTATUS linux_jack_deactivate(void* args)
 }
 
 /*
+ * linux_jack_get_client_name
+ */
+static NTSTATUS linux_jack_get_client_name(void *args)
+{
+    struct jack_get_client_name_params *params = args;
+    jack_client_t *client = (jack_client_t*)params->client;
+
+    params->client_name = jack_get_client_name(client);
+        
+    return _STATUS_SUCCESS;
+}
+
+/*
  * linux_jack_get_ports
  */
 static NTSTATUS linux_jack_get_ports(void *args)
@@ -494,6 +507,7 @@ const unixlib_entry_t __wine_unix_call_funcs[] =
     linux_jack_client_close,
     linux_jack_client_open,
     linux_jack_deactivate,
+    linux_jack_get_client_name,
     linux_jack_get_ports,
     linux_jack_get_sample_rate,
     linux_jack_on_shutdown,
