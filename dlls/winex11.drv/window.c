@@ -101,10 +101,25 @@ static XContext host_window_context = 0;
 
 static const WCHAR whole_window_prop[] =
     {'_','_','w','i','n','e','_','x','1','1','_','w','h','o','l','e','_','w','i','n','d','o','w',0};
-static const WCHAR clip_window_prop[] =
-    {'_','_','w','i','n','e','_','x','1','1','_','c','l','i','p','_','w','i','n','d','o','w',0};
 static const WCHAR focus_time_prop[] =
     {'_','_','w','i','n','e','_','x','1','1','_','f','o','c','u','s','_','t','i','m','e',0};
+    
+static void clip_window_prop_name( Display *display, WCHAR *buf, int buflen )
+{
+    /* clip_window_prop is shared by processes on the same X display */
+    static const WCHAR prefix[] =
+        {'_','_','w','i','n','e','_','x','1','1','_','c','l','i','p','_','w','i','n','d','o','w','_',0};
+    const char *dispname = XDisplayString( display );
+    int i;
+    for (i = 0; prefix[i] && i < buflen - 1; i++) {
+        buf[i] = prefix[i];
+    }
+
+    while (*dispname && i < buflen - 1) {
+        buf[i++] = (WCHAR)(unsigned char)*dispname++;
+    }
+    buf[i] = 0;
+}
 
 static const char *debugstr_mwm_hints( const MwmHints *hints )
 {
@@ -1244,10 +1259,16 @@ Window init_clip_window(void)
 {
     struct x11drv_thread_data *data = x11drv_init_thread_data();
 
-    if (!data->clip_window &&
-        (data->clip_window = (Window)NtUserGetProp( NtUserGetDesktopWindow(), clip_window_prop )))
+    if (!data->clip_window)
     {
-        XSelectInput( data->display, data->clip_window, StructureNotifyMask );
+        WCHAR prop_name[64];
+        clip_window_prop_name( data->display, prop_name, ARRAY_SIZE(prop_name) );
+        data->clip_window = (Window)NtUserGetProp( NtUserGetDesktopWindow(), prop_name );
+        if (data->clip_window)
+        {
+            TRACE( "clip_window got: display=%s win=%lx\n", XDisplayString(data->display), data->clip_window );
+            XSelectInput( data->display, data->clip_window, StructureNotifyMask );
+        }
     }
     return data->clip_window;
 }
@@ -2764,6 +2785,7 @@ BOOL X11DRV_CreateWindow( HWND hwnd )
     {
         struct x11drv_thread_data *data = x11drv_init_thread_data();
         XSetWindowAttributes attr;
+        WCHAR prop_name[64];
 
         /* create the cursor clipping window */
         attr.override_redirect = TRUE;
@@ -2772,7 +2794,9 @@ BOOL X11DRV_CreateWindow( HWND hwnd )
                                            InputOnly, default_visual.visual,
                                            CWOverrideRedirect | CWEventMask, &attr );
         XFlush( data->display );
-        NtUserSetProp( hwnd, clip_window_prop, (HANDLE)data->clip_window );
+        clip_window_prop_name( data->display, prop_name, ARRAY_SIZE(prop_name) );
+        NtUserSetProp( hwnd, prop_name, (HANDLE)data->clip_window );
+        TRACE( "clip_window set: display=%s win=%lx\n", XDisplayString(data->display), data->clip_window );
         X11DRV_DisplayDevices_RegisterEventHandlers();
     }
     return TRUE;
