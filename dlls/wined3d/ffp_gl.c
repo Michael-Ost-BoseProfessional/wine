@@ -1143,8 +1143,8 @@ static void scissorrect(struct wined3d_context *context, const struct wined3d_st
 
             sr[i * 4] = r->left;
             sr[i * 4 + 1] = r->top;
-            sr[i * 4 + 2] = r->right - r->left;
-            sr[i * 4 + 3] = r->bottom - r->top;
+            sr[i * 4 + 2] = max(0, r->right - r->left);
+            sr[i * 4 + 3] = max(0, r->bottom - r->top);
         }
 
         if (context->scissor_rect_count > state->scissor_rect_count)
