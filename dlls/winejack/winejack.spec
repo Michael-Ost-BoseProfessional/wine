@@ -4,6 +4,7 @@
 @ stdcall jack_client_close(int64)
 @ stdcall jack_client_open(str long ptr)
 @ stdcall jack_deactivate(int64)
+@ stdcall jack_get_client_name(int64)
 @ stdcall jack_get_ports(int64 str str long)
 @ stdcall jack_get_sample_rate(int64)
 @ stdcall jack_on_shutdown(int64 ptr ptr)
