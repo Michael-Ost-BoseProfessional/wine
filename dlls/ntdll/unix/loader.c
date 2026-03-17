@@ -923,7 +923,6 @@ static NTSTATUS open_builtin_so_file( char *name, OBJECT_ATTRIBUTES *attr, void 
     int fd;
     char *end = name + strlen( name );
 
-    TRACE("[MO] name=%s", name\n);
     if (search_machine != current_machine) return status;
     if (load_machine && load_machine != current_machine) return status;
 
@@ -984,8 +983,7 @@ static NTSTATUS open_builtin_so_file( char *name, OBJECT_ATTRIBUTES *attr, void 
                                       SECTION_IMAGE_INFORMATION *image_info, USHORT search_machine,
                                       USHORT load_machine, BOOL prefer_native )
 {
-   TRACE("[MO] unsupported\n");
-   return STATUS_DLL_NOT_FOUND;
+    return STATUS_DLL_NOT_FOUND;
 }
 
 static NTSTATUS open_main_image_so_file( const char *name, UNICODE_STRING *nt_name, void **module,
@@ -1071,7 +1069,6 @@ static NTSTATUS open_dll_file( const char *name, OBJECT_ATTRIBUTES *attr, HANDLE
     NTSTATUS status;
     HANDLE handle;
 
-    TRACE("[MO] name=%s\n", name);
     if ((status = open_unix_file( &handle, name, GENERIC_READ | SYNCHRONIZE, attr, 0,
                                   FILE_SHARE_READ | FILE_SHARE_DELETE, FILE_OPEN,
                                   FILE_SYNCHRONOUS_IO_NONALERT | FILE_NON_DIRECTORY_FILE, NULL, 0 )))
