@@ -670,6 +670,8 @@ UDEV_LIBS
 UDEV_CFLAGS
 OSS4_LIBS
 OSS4_CFLAGS
+JACK_CFLAGS
+JACK_LIBS
 ALSA_CFLAGS
 ALSA_LIBS
 GSTREAMER_LIBS
@@ -940,6 +942,7 @@ with_gstreamer
 with_hwloc
 with_inotify
 with_krb5
+with_jack
 with_mingw
 with_netapi
 with_opencl
@@ -1546,6 +1549,7 @@ enable_wined3d
 enable_winedmo
 enable_winegstreamer
 enable_winehid_sys
+enable_winejack
 enable_winemac_drv
 enable_winemapi
 enable_wineoss_drv
@@ -1891,6 +1895,8 @@ GSTREAMER_CFLAGS
 GSTREAMER_LIBS
 ALSA_CFLAGS
 ALSA_LIBS
+JACK_CFLAGS
+JACK_LIBS
 UDEV_CFLAGS
 UDEV_LIBS
 UNWIND_CFLAGS
@@ -2572,6 +2578,7 @@ Optional Packages:
                           FreeBSD)
   --without-inotify       do not use inotify (filesystem change notifications)
   --without-krb5          do not use krb5 (Kerberos)
+  --without-jack          do not use JACK sound support
   --without-mingw         do not use the MinGW cross-compiler
   --without-netapi        do not use the Samba NetAPI library
   --without-opencl        do not use OpenCL
@@ -2757,6 +2764,8 @@ Some influential environment variables:
               gstreamer-audio-1.0 gstreamer-tag-1.0, overriding pkg-config
   ALSA_CFLAGS C compiler flags for alsa, overriding pkg-config
   ALSA_LIBS   Linker flags for alsa, overriding pkg-config
+  JACK_CFLAGS C compiler flags for jack, overriding pkg-config
+  JACK_LIBS   Linker flags for jack, overriding pkg-config
   UDEV_CFLAGS C compiler flags for libudev, overriding pkg-config
   UDEV_LIBS   Linker flags for libudev, overriding pkg-config
   UNWIND_CFLAGS
@@ -4424,6 +4433,13 @@ fi
 if test ${with_krb5+y}
 then :
   withval=$with_krb5;
+fi
+
+
+# Check whether --with-jack was given.
+if test ${with_jack+y}
+then :
+  withval=$with_jack;
 fi
 
 
@@ -18688,6 +18704,122 @@ esac
 enable_winealsa_drv=${enable_winealsa_drv:-no}
 fi
 
+JACK_LIBS=""
+
+if test "x$with_jack" != xno
+then
+    rm -f conftest.err
+if ${JACK_CFLAGS:+false} :
+then :
+  if test ${PKG_CONFIG+y}
+then :
+  JACK_CFLAGS=`$PKG_CONFIG --cflags jack 2>conftest.err`
+fi
+fi
+
+if ${JACK_LIBS:+false} :
+then :
+  if test ${PKG_CONFIG+y}
+then :
+  JACK_LIBS=`$PKG_CONFIG --libs jack 2>/dev/null`
+fi
+fi
+
+
+printf "%s\n" "$as_me:${as_lineno-$LINENO}: jack cflags: $JACK_CFLAGS" >&5
+printf "%s\n" "$as_me:${as_lineno-$LINENO}: jack libs: $JACK_LIBS" >&5
+if test -s conftest.err; then
+     printf %s "$as_me:${as_lineno-$LINENO}: jack errors: " >&5
+     cat conftest.err >&5
+fi
+rm -f conftest.err
+if test -n "$JACK_CFLAGS$JACK_LIBS"
+then :
+  ac_save_CPPFLAGS=$CPPFLAGS
+CPPFLAGS="$CPPFLAGS $JACK_CFLAGS"
+ac_fn_c_check_header_compile "$LINENO" "jack/jack.h" "ac_cv_header_jack_jack_h" "$ac_includes_default"
+if test "x$ac_cv_header_jack_jack_h" = xyes
+then :
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for -ljack" >&5
+printf %s "checking for -ljack... " >&6; }
+if test ${ac_cv_lib_soname_jack+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) ac_check_soname_save_LIBS=$LIBS
+LIBS="-ljack $JACK_LIBS $LIBS"
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.
+   The 'extern "C"' is for builds by C++ compilers;
+   although this is not generally supported in C code supporting it here
+   has little cost and some practical benefit (sr 110532).  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char jack_client_open (void);
+int
+main (void)
+{
+return jack_client_open ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  case "$LIBEXT" in
+    dll) ac_cv_lib_soname_jack=`$ac_cv_path_LDD conftest.exe | grep "jack" | sed -e "s/dll.*/dll/"';2,$d'` ;;
+    dylib) ac_cv_lib_soname_jack=`$OTOOL -L conftest$ac_exeext | grep "libjack\\.[0-9A-Za-z.]*dylib" | sed -e "s/^.*\/\(libjack\.[0-9A-Za-z.]*dylib\).*$/\1/"';2,$d'` ;;
+    *) ac_cv_lib_soname_jack=`$READELF -d conftest$ac_exeext | grep "NEEDED.*libjack\\.$LIBEXT" | sed -e "s/^.*\\[\\(libjack\\.$LIBEXT[^	 ]*\\)\\].*$/\1/"';2,$d'`
+       if ${ac_cv_lib_soname_jack:+false} :
+then :
+  ac_cv_lib_soname_jack=`$LDD conftest$ac_exeext | grep "libjack\\.$LIBEXT" | sed -e "s/^.*\(libjack\.$LIBEXT[^	 ]*\).*$/\1/"';2,$d'`
+fi ;;
+  esac
+else case e in #(
+  e) ac_cv_lib_soname_jack= ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+  LIBS=$ac_check_soname_save_LIBS ;;
+esac
+fi
+if ${ac_cv_lib_soname_jack:+false} :
+then :
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: not found" >&5
+printf "%s\n" "not found" >&6; }
+
+else case e in #(
+  e) { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_soname_jack" >&5
+printf "%s\n" "$ac_cv_lib_soname_jack" >&6; }
+
+printf "%s\n" "#define SONAME_LIBJACK \"$ac_cv_lib_soname_jack\"" >>confdefs.h
+
+        ;;
+esac
+fi
+fi
+
+CPPFLAGS=$ac_save_CPPFLAGS
+fi
+
+fi
+if test -z "$JACK_LIBS"
+then :
+  case "x$with_jack" in
+  x)   as_fn_append wine_notices "|libjack ${notice_platform}development files not found, JACK won't be supported." ;;
+  xno) ;;
+  *)   as_fn_error $? "libjack ${notice_platform}development files not found, JACK won't be supported.
+This is an error since --with-jack was requested." "$LINENO" 5 ;;
+esac
+enable_winejack=${enable_winejack:-no}
+fi
+
 if test "x$with_oss" != xno
 then
     ac_save_CPPFLAGS="$CPPFLAGS"
@@ -23290,6 +23422,7 @@ wine_fn_config_makefile dlls/wined3d enable_wined3d
 wine_fn_config_makefile dlls/winedmo enable_winedmo
 wine_fn_config_makefile dlls/winegstreamer enable_winegstreamer
 wine_fn_config_makefile dlls/winehid.sys enable_winehid_sys
+wine_fn_config_makefile dlls/winejack enable_winejack
 wine_fn_config_makefile dlls/winemac.drv enable_winemac_drv
 wine_fn_config_makefile dlls/winemapi enable_winemapi
 wine_fn_config_makefile dlls/wineoss.drv enable_wineoss_drv
@@ -24626,6 +24759,8 @@ GSTREAMER_CFLAGS = $GSTREAMER_CFLAGS
 GSTREAMER_LIBS = $GSTREAMER_LIBS
 ALSA_LIBS = $ALSA_LIBS
 ALSA_CFLAGS = $ALSA_CFLAGS
+JACK_LIBS = $JACK_LIBS
+JACK_CFLAGS = $JACK_CFLAGS
 OSS4_CFLAGS = $OSS4_CFLAGS
 OSS4_LIBS = $OSS4_LIBS
 UDEV_CFLAGS = $UDEV_CFLAGS
