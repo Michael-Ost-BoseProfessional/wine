@@ -56,7 +56,7 @@ WINE_DECLARE_DEBUG_CHANNEL(gecko);
 
 #ifdef __i386__
 #define GECKO_ARCH_STRING "x86"
-#elif defined(__x86_64__)
+#elif defined(__x86_64__) || defined(__aarch64__)
 #define GECKO_ARCH_STRING "x86_64"
 #else
 #define GECKO_ARCH_STRING ""
