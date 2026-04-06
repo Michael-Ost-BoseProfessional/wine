@@ -843,6 +843,10 @@ static LONG_PTR ndr_client_call( const MIDL_STUB_DESC *stub_desc, const PFORMAT_
     return retval;
 }
 
+#ifdef __arm64ec__
+unsigned char arm64ec_native;
+#endif
+
 LONG_PTR WINAPI NdrpClientCall2( PMIDL_STUB_DESC pStubDesc, PFORMAT_STRING pFormat,
                                  void **stack_top, BOOLEAN fpu_args )
 {
@@ -866,8 +870,11 @@ LONG_PTR WINAPI NdrpClientCall2( PMIDL_STUB_DESC pStubDesc, PFORMAT_STRING pForm
     NDR_PARAM_OIF old_args[256];
 
     TRACE("pStubDesc %p, pFormat %p, ...\n", pStubDesc, pFormat);
-
+    
     TRACE("NDR Version: 0x%lx\n", pStubDesc->Version);
+#ifdef __arm64ec__
+    TRACE("x86_64 emulated: %d\n", arm64ec_native);
+#endif
 
     if (pProcHeader->Oi_flags & Oi_HAS_RPCFLAGS)
     {
@@ -1004,6 +1011,25 @@ CLIENT_CALL_RETURN __attribute__((naked)) NdrClientCall2( PMIDL_STUB_DESC desc, 
          "stp x29, x30, [sp, #-0x20]!\n\t"
          ".seh_save_fplr_x 0x20\n\t"
          ".seh_endprologue\n\t"
+                                            /* When this variadic function (e.g. the NdrClientCall2 proxy for
+                                             * OpenSCManagerW) is called from x86_64 code via FEX, ExitFunctionEC
+                                             * erroneously sets x4 just past the return address rather than at the 5th
+                                             * argument, as required by the ARM64EC ABI. Detect the FEX case by checking
+                                             * for ARM64 native stack data at that slot (*(x4+8) == 0x10). If found, add
+                                             * 0x20 to x4 to reach the first extra argument. 0x20 accounts for the four
+                                             * 8-byte slots the x86_64 ABI reserves for register arguments.
+                                             */
+         "adrp x17, arm64ec_native\n\t"
+         "add x17, x17, :lo12:arm64ec_native\n\t"
+         "mov w16, #1\n\t"
+         "strb w16, [x17]\n\t"
+         "cbz x4, 1f\n\t"
+         "ldr x16, [x4, #0x08]\n\t"
+         "cmp x16, #0x10\n\t"
+         "b.ne 1f\n\t"
+         "add x4, x4, #0x20\n\t"
+         "strb wzr, [x17]\n\t"
+         "1:\n\t"
          "stp x2, x3, [x4, #-0x10]!\n\t"
          "mov x2, x4\n\t"          /* stack */
          "mov x3, #0\n\t"          /* fpu_stack */
