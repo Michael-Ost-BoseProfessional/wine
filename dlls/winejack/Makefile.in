@@ -1,4 +1,4 @@
-MODULE    = winejack
+MODULE    = winejack.dll
 IMPORTLIB = winejack
 UNIXLIB   = winejack.so
 UNIX_CFLAGS  = $(JACK_CFLAGS)
