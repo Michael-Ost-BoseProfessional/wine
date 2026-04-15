@@ -3080,6 +3080,7 @@ DECL_HANDLER(set_queue_fd)
     struct file *file;
     int unix_fd;
 
+    if (!queue) return;
     if (queue->fd)  /* fd can only be set once */
     {
         set_error( STATUS_ACCESS_DENIED );
