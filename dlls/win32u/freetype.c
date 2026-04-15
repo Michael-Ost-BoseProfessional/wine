@@ -1174,6 +1174,7 @@ static FcPattern *create_family_pattern( const char *name, FcPattern **cached )
     FcPattern *ret = NULL, *tmp, *pattern;
     FcResult result;
     if (*cached) return *cached;
+    if (!pFcPatternCreate) return NULL;
     pattern = pFcPatternCreate();
     pFcPatternAddString( pattern, FC_FAMILY, (const FcChar8 *)name );
     pFcPatternAddString( pattern, FC_NAMELANG, (const FcChar8 *)"en-us" );
@@ -2013,6 +2014,8 @@ static BOOL fontconfig_enum_family_fallbacks( UINT pitch_and_family, int index,
     FcPattern *pat;
     char *str;
     DWORD len;
+
+    if (!pFcInit) return FALSE;
 
     if ((pitch_and_family & FIXED_PITCH) || (pitch_and_family & 0xf0) == FF_MODERN) pat = create_family_pattern( "monospace", &pattern_fixed );
     else if ((pitch_and_family & 0xf0) == FF_ROMAN) pat = create_family_pattern( "serif", &pattern_serif );
